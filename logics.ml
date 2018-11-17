@@ -1,10 +1,6 @@
 (* Logics: LTL, CTL* and CTLSKD *)          
 
-(* Atomic propositions *)
-type atp = int
-
-(* Obervational powers for epistemic logics *)
-type observation = int
+open Common
 
 (* LTL formulas *)
 type ltl =
