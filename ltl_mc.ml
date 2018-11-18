@@ -14,22 +14,20 @@ let rec nusmv_write_states_rec (l:state list): string =
        
 let nusmv_write_states (k:kripke): string =
   "state: {" ^ nusmv_write_states_rec (get_states k) ^ "};"
-
-let rec nusmv_write_var_rec (l:atp list): string =
-  match l with
-  | [] -> ""
-  | a::l' -> "p" ^ string_of_int a ^ ": boolean;\n" ^ nusmv_write_var_rec l'
-                                                          
-let nusmv_write_var (k:kripke) (m:marking): string =
-  "VAR\n" ^ nusmv_write_states k ^ "\n" ^ nusmv_write_var_rec (get_atp m)
+                                               
+let nusmv_write_var (k:kripke): string =
+  "VAR\n" ^ nusmv_write_states k ^ "\n"
 
 let rec nusmv_write_next_state_rec (k:kripke): string =
   match k with
   | [] -> ""
   | (s,sl)::k' ->
-     "(state=s" ^ string_of_int s ^ "): {" ^
-       nusmv_write_states_rec sl ^
-         "};\n" ^ nusmv_write_next_state_rec k'
+     match sl with
+     | [] -> ""
+     | _ ->
+        "(state=s" ^ string_of_int s ^ "): {" ^
+          nusmv_write_states_rec sl ^
+            "};\n" ^ nusmv_write_next_state_rec k'
                                                               
 let nusmv_write_next_state (k:kripke): string =
   "next(state) :=\ncase\n" ^ nusmv_write_next_state_rec k ^ "TRUE: state;\nesac;\n"
@@ -37,29 +35,26 @@ let nusmv_write_next_state (k:kripke): string =
 let nusmv_write_init_state (init:state): string =
   "init(state) := s" ^ string_of_int init ^ ";\n"
                                               
-let nusmv_write_init_atp (l:state list) (a:atp) (init:state): string =
-  match List.mem a l with
-  | true -> "init(p" ^ string_of_int a ^ ") := TRUE;\n"
-  | false -> "init(p" ^ string_of_int a ^ ") := FALSE;\n"
-                                            
-let rec nusmv_write_next_atp_rec (l:state list): string =
+let rec nusmv_write_list_states (l:state list): string =
   match l with
   | [] -> ""
-  | s::[] -> "(state=s" ^ string_of_int s ^ ") : TRUE;"
-  | s::l' -> "(state=s" ^ string_of_int s ^ ") | "
+  | s::[] -> "(state=s" ^ string_of_int s ^ ");"
+  | s::l' -> "(state=s" ^ string_of_int s ^ ") | " ^ nusmv_write_list_states l'
                                               
-let nusmv_write_next_atp (m:marking) (init:state): string =
+let rec nusmv_write_atp (m:marking): string =
   match m with
   | [] -> ""
   | (a,l)::m' ->
-     nusmv_write_init_atp l a init ^ 
-       "next(p" ^ string_of_int a ^ ") :=\ncase\n" ^ 
-         nusmv_write_next_atp_rec l ^ "\nTRUE: FALSE;\nesac;\n"
+     match l with
+     | [] -> "p" ^ string_of_int a ^ " := FALSE;\n" ^ nusmv_write_atp m'
+     | _ -> "p" ^ string_of_int a ^ " := " ^
+              nusmv_write_list_states l ^ "\n"
+
+let nusmv_write_define (m:marking): string =
+  "DEFINE\n" ^ nusmv_write_atp m
                                                               
-let nusmv_write_assign (k:kripke) (init:state) (m:marking): string =
-  "ASSIGN\n" ^ nusmv_write_init_state init ^
-    nusmv_write_next_state k ^
-      nusmv_write_next_atp m init
+let nusmv_write_assign (k:kripke) (init:state): string =
+  "ASSIGN\n" ^ nusmv_write_init_state init ^ nusmv_write_next_state k 
 
 (* http://nusmv.fbk.eu/NuSMV/userman/v11/html/nusmv_26.html *)
 let rec nusmv_write_spec (spec:ltl): string =
@@ -76,9 +71,11 @@ let rec nusmv_write_spec (spec:ltl): string =
      "(" ^ nusmv_write_spec spec1 ^ ") U (" ^ nusmv_write_spec spec2 ^ ")"
 
 let nusmv_write_pbm (k:kripke) (init:state) (m:marking) (spec:ltl): string =
-  nusmv_write_var k m ^
-    nusmv_write_assign k init m ^
-      "SPEC\n" ^ nusmv_write_spec spec
+  "MODULE main\n" ^
+    nusmv_write_var k ^
+      nusmv_write_assign k init ^
+        nusmv_write_define m ^ 
+        "LTLSPEC\n" ^ nusmv_write_spec spec
                                                                          
 (* LTL model-Checking. Takes a model, an initial state, a marking and a specification *)
 let ltl_mc (k:kripke) (init:state) (m:marking) (spec:ltl): bool =
