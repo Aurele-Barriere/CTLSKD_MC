@@ -6,7 +6,6 @@ open List
 (* A Kripke Structure is a liste of states, each associated with a list of successors *)
 type kripke = (state * state list) list
 
-
 (* A marking is a list of atomic propositions, each associated with a list of states where it's true *)
 type marking = (atp * state list) list
 
@@ -24,10 +23,10 @@ let rec successors (s:state) (k:kripke): state list =
 let get_atp (m:marking): atp list = map fst m
 
 (* Returns fresh atomic proposition *)
-let rec fresh_atp_rec (a:atp) (m:marking) =
+let rec fresh_atp_rec (a:atp) (m:marking): atp =
   match m with
   | [] -> a + 1
   | (a1,l)::m1 when a1 > a -> fresh_atp_rec a1 m1
   | (a1,l)::m1 -> fresh_atp_rec a m1
 
-let fresh_atp (m:marking) = fresh_atp_rec 0 m
+let fresh_atp (m:marking): atp = fresh_atp_rec 0 m
