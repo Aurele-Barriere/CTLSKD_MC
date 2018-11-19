@@ -5,3 +5,5 @@ clean:
 	-rm *.cmi
 	-rm *.cmo
 	-rm *.out
+	-rm ltl
+	-rm output

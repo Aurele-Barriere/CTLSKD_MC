@@ -79,5 +79,9 @@ let nusmv_write_pbm (k:kripke) (init:state) (m:marking) (spec:ltl): string =
                                                                          
 (* LTL model-Checking. Takes a model, an initial state, a marking and a specification *)
 let ltl_mc (k:kripke) (init:state) (m:marking) (spec:ltl): bool =
+  let file = open_out "ltl" in
+  let _ = Printf.fprintf file "%s" (nusmv_write_pbm k init m spec) in
+  close_out file;
+  let _ = Sys.command ("./NuSMV -dcx ltl > output") in
   true
   
