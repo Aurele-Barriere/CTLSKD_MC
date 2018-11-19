@@ -17,4 +17,13 @@ let ltl_spec: ltl = LTL_X (LTL_AP 1)
 
 (* let _ = print_string (nusmv_write_pbm ltl_kripke ltl_init ltl_marking1 ltl_spec) *)
 
-let _ = ltl_mc ltl_kripke ltl_init ltl_marking1 ltl_spec
+let bool1 = ltl_mc ltl_kripke ltl_init ltl_marking1 ltl_spec
+
+let bool2 = ltl_mc ltl_kripke ltl_init ltl_marking2 ltl_spec
+
+let _ = match bool1 with
+  | true -> print_string "first test failed\n"
+  | false -> print_string "first test passed\n"
+let _ = match bool2 with
+  | true -> print_string "second test passed\n"
+  | false -> print_string "second test failed\n"

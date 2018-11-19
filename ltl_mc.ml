@@ -4,7 +4,6 @@ open Common
 open Models
 open Logics
 
-
 (* Writing a LTL problem in NuSMV's syntax *)
 let rec nusmv_write_states_rec (l:state list): string =
   match l with
@@ -76,12 +75,13 @@ let nusmv_write_pbm (k:kripke) (init:state) (m:marking) (spec:ltl): string =
       nusmv_write_assign k init ^
         nusmv_write_define m ^ 
         "LTLSPEC\n" ^ nusmv_write_spec spec
-                                                                         
+
 (* LTL model-Checking. Takes a model, an initial state, a marking and a specification *)
 let ltl_mc (k:kripke) (init:state) (m:marking) (spec:ltl): bool =
   let file = open_out "ltl" in
   let _ = Printf.fprintf file "%s" (nusmv_write_pbm k init m spec) in
   close_out file;
-  let _ = Sys.command ("./NuSMV -dcx ltl > output") in
-  true
-  
+  let output = Sys.command ("./nusmv_wrapper") in
+  match output with
+  | 0 -> false
+  | _ -> true

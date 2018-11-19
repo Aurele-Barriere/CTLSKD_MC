@@ -3,5 +3,6 @@
 *.cmi
 *.cmo
 NuSMV
+nusmv_wrapper
 ltl
 output
