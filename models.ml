@@ -30,3 +30,13 @@ let rec fresh_atp_rec (a:atp) (m:marking): atp =
   | (a1,l)::m1 -> fresh_atp_rec a m1
 
 let fresh_atp (m:marking): atp = fresh_atp_rec 0 m
+
+(* A map from observation and (standard) states to values *)
+module ObsMap =
+  Map.Make(struct type t = (observation * std_state) let compare = compare end)
+
+(* An observation marking om gives meaning to each observation. Looking at s1 with observations o1, you see om(o1,s1) *)
+type obs_marking = int ObsMap.t                   
+
+let eq_state (om:obs_marking) (o:observation) (s1:std_state) (s2:std_state): bool =
+  ObsMap.find (o,s1) om = ObsMap.find (o,s2) om

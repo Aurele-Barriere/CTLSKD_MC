@@ -1,4 +1,5 @@
 (* Common types *)
+open Map
 
 (* Atomic propositions *)
 type atp = int
@@ -6,12 +7,19 @@ type atp = int
 (* Obervational powers for epistemic logics *)
 type observation = int
 
+(* A standard state is the state of a Kripke Model in the original problem *)
+type std_state = int
+
+(* An information set is the set of standards states considered possible *)
+type inf_set = std_state list
+                     
 (* States *)
-type state = I of int
-           | A of int * int list * observation (* for augmented kripke models *)
+(* To define Augmented Kripke Models, we present a broader definition of states *)
+type state = I of std_state
+           | A of std_state * inf_set * observation
 
 (* Writing states for NuSMV *)
-let rec string_of_I (i:int list): string =
+let rec string_of_I (i:inf_set): string =
   match i with
   | [] -> ""
   | s::i' -> "I" ^ string_of_int s ^ string_of_I i'
