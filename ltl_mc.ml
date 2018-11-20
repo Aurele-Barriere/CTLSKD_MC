@@ -47,7 +47,7 @@ let rec nusmv_write_atp (m:marking): string =
      match l with
      | [] -> string_of_atp a ^ " := FALSE;\n" ^ nusmv_write_atp m'
      | _ -> string_of_atp a ^ " := " ^
-              nusmv_write_list_states l ^ "\n"
+              nusmv_write_list_states l ^ "\n" ^ nusmv_write_atp m'
 
 let nusmv_write_define (m:marking): string =
   "DEFINE\n" ^ nusmv_write_atp m
