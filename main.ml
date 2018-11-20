@@ -9,10 +9,10 @@ open Ctlskd_mc
 
 
 (* LTL Example *)
-let kripke1: kripke  = [(1,[2;3]);(2,[]);(3,[])]
-let marking1: marking = [(1,[2])]
-let marking2: marking = [(1,[2;3])]
-let init: state = 1
+let kripke1: kripke  = [(I 1,[I 2;I 3]);(I 2,[]);(I 3,[])]
+let marking1: marking = [(1,[I 2])]
+let marking2: marking = [(1,[I 2;I 3])]
+let init: state = I 1
 let ltl_spec: ltl = LTL_X (LTL_AP 1)
 
 let ltl_1 = ltl_mc kripke1 init marking1 ltl_spec

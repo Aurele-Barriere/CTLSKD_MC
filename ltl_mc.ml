@@ -8,8 +8,8 @@ open Logics
 let rec nusmv_write_states_rec (l:state list): string =
   match l with
   | [] -> ""
-  | s::[] -> "s" ^ string_of_int s
-  | s::l' -> "s" ^ string_of_int s ^ ", " ^ nusmv_write_states_rec l'
+  | s::[] -> string_of_state s
+  | s::l' -> string_of_state s ^ ", " ^ nusmv_write_states_rec l'
        
 let nusmv_write_states (k:kripke): string =
   "state: {" ^ nusmv_write_states_rec (get_states k) ^ "};"
@@ -24,7 +24,7 @@ let rec nusmv_write_next_state_rec (k:kripke): string =
      match sl with
      | [] -> ""
      | _ ->
-        "(state=s" ^ string_of_int s ^ "): {" ^
+        "(state=" ^ string_of_state s ^ "): {" ^
           nusmv_write_states_rec sl ^
             "};\n" ^ nusmv_write_next_state_rec k'
                                                               
@@ -32,21 +32,21 @@ let nusmv_write_next_state (k:kripke): string =
   "next(state) :=\ncase\n" ^ nusmv_write_next_state_rec k ^ "TRUE: state;\nesac;\n"
 
 let nusmv_write_init_state (init:state): string =
-  "init(state) := s" ^ string_of_int init ^ ";\n"
+  "init(state) := " ^ string_of_state init ^ ";\n"
                                               
 let rec nusmv_write_list_states (l:state list): string =
   match l with
   | [] -> ""
-  | s::[] -> "(state=s" ^ string_of_int s ^ ");"
-  | s::l' -> "(state=s" ^ string_of_int s ^ ") | " ^ nusmv_write_list_states l'
+  | s::[] -> "(state=" ^ string_of_state s ^ ");"
+  | s::l' -> "(state=" ^ string_of_state s ^ ") | " ^ nusmv_write_list_states l'
                                               
 let rec nusmv_write_atp (m:marking): string =
   match m with
   | [] -> ""
   | (a,l)::m' ->
      match l with
-     | [] -> "p" ^ string_of_int a ^ " := FALSE;\n" ^ nusmv_write_atp m'
-     | _ -> "p" ^ string_of_int a ^ " := " ^
+     | [] -> string_of_atp a ^ " := FALSE;\n" ^ nusmv_write_atp m'
+     | _ -> string_of_atp a ^ " := " ^
               nusmv_write_list_states l ^ "\n"
 
 let nusmv_write_define (m:marking): string =
@@ -59,7 +59,7 @@ let nusmv_write_assign (k:kripke) (init:state): string =
 let rec nusmv_write_spec (spec:ltl): string =
   match spec with
   | LTL_TRUE -> "TRUE"
-  | LTL_AP a -> "p" ^ string_of_int a
+  | LTL_AP a -> string_of_atp a
   | LTL_NEG spec' -> "!(" ^ nusmv_write_spec spec' ^ ")"
   | LTL_OR (spec1,spec2) ->
      "(" ^ nusmv_write_spec spec1 ^ ") | (" ^ nusmv_write_spec spec2 ^ ")"
