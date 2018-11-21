@@ -23,13 +23,6 @@ let rec string_of_I (i:inf_set): string =
   match i with
   | [] -> ""
   | s::i' -> "I" ^ string_of_int s ^ string_of_I i'
-                                  
-let string_of_state (s:state): string =
-  match s with
-  | I n -> "s" ^ string_of_int n
-  | A (s,i,o) -> "s" ^ string_of_int s ^
-                   string_of_I i ^
-                     string_of_int o
               
 (* Writing Atomic Props for NuSMV *)
 let string_of_atp (a:atp): string =
@@ -38,3 +31,10 @@ let string_of_atp (a:atp): string =
 (* Writing Observations for NuSMV *)
 let string_of_obs (o:observation): string =
   "o" ^ string_of_int o
+
+let string_of_state (s:state): string =
+  match s with
+  | I n -> "s" ^ string_of_int n
+  | A (s,i,o) -> "s" ^ string_of_int s ^
+                   string_of_I i ^
+                     string_of_obs o

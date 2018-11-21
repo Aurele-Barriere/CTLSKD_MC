@@ -11,6 +11,13 @@ type marking = (atp * state list) list
 
 (* Returns the states of the model *)
 let get_states (k:kripke): state list = map fst k
+
+(* Returns the standard states of a standard kripke model *)
+let rec get_std_states (k:kripke): std_state list =
+  match k with
+  | [] -> []
+  | (I x,_)::k' -> x :: (get_std_states k')
+  | _ -> failwith "get_std_states should only be called on kripke models with standard states"
                               
 (* Successors of a state in a model *)
 let rec successors (s:state) (k:kripke): state list =
