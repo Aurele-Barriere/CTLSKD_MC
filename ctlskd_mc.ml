@@ -126,6 +126,111 @@ let check_ctls (k:kripke) (m:marking) (spec:state_ctls):state list =
   List.filter
     (fun (x:state) -> ctls_mc k x m spec)
     (get_states k)
+
+(* Get the list (without duplicates) of all observations used in a formula *)
+let rec get_obs_list_h (spec:history_ctlskd): observation list =
+  match spec with
+  | H_CTLSKD_NEG h -> get_obs_list_h h
+  | H_CTLSKD_OR (h1,h2) -> append_no_dup (get_obs_list_h h1) (get_obs_list_h h2)
+  | H_CTLSKD_AND (h1,h2) -> append_no_dup (get_obs_list_h h1) (get_obs_list_h h2)
+  | H_CTLSKD_A p -> get_obs_list_p p
+  | H_CTLSKD_E p -> get_obs_list_p p
+  | H_CTLSKD_K h -> get_obs_list_h h
+  | H_CTLSKD_D (o,h) -> append_no_dup [o] (get_obs_list_h h)
+  | _ -> []
+and get_obs_list_p (spec:path_ctlskd): observation list =
+  match spec with
+  | P_CTLSKD_H h -> get_obs_list_h h
+  | P_CTLSKD_NEG p -> get_obs_list_p p
+  | P_CTLSKD_OR (p1,p2) -> append_no_dup (get_obs_list_p p1) (get_obs_list_p p2)
+  | P_CTLSKD_AND (p1,p2) -> append_no_dup (get_obs_list_p p1) (get_obs_list_p p2)
+  | P_CTLSKD_X p -> get_obs_list_p p
+  | P_CTLSKD_U (p1,p2) -> append_no_dup (get_obs_list_p p1) (get_obs_list_p p2)
+
+(* Ge list of used observations, with the initial observation *)
+let get_obs_list (o_init: observation) (spec:history_ctlskd): observation list =
+  append_no_dup [o_init] (get_obs_list_h spec)
+
+
+(* Given a list of states where phi is true, returns true if Do' phi is true in x *)
+let filter_delta (om:obs_marking) (l:state list) (o':observation) (x:state): bool =
+  match x with
+  | I _ -> failwith "states given to filter_delta should be augmented"
+  | A (s,i,o) -> List.mem (A (s, ud s i o' om, o')) l
+
+
+(* Verifies that for each std_state in remaining, A(x,i,o) is in l *)
+let rec filter_k_rec (remaining:inf_set) (i:inf_set) (o:observation) (l:state list): bool =
+  match remaining with
+  | [] -> true
+  | x::rem -> (List.mem (A(x,i,o)) l) && filter_k_rec rem i o l
+
+(* Given list of states where phi holds, does K phi holds in x? *)
+let filter_k (l:state list) (x:state): bool =
+  match x with
+  | I _ -> failwith "states given to filter_k should be augmented"
+  | A (s,i,o) -> filter_k_rec i i o l
+  
+
+(* Takes an augmented kripke, marking and a spec. Replaces each Kphi or Do phi where phi is CTL* with a fresh atomic variable. Keep doing so until the formula has no more K or Deltas. *)
+let rec aug_marking_update (k:kripke) (m:marking) (om:obs_marking) (spec:history_ctlskd): (marking * history_ctlskd) =
+  match spec with
+  | H_CTLSKD_TRUE -> (m,spec)
+  | H_CTLSKD_AP a -> (m,spec)
+  | H_CTLSKD_NEG h -> let (newm, newspec) = aug_marking_update k m om h in
+                      (newm, H_CTLSKD_NEG newspec)
+  | H_CTLSKD_OR (h1,h2) -> let (newm1, newspec1) = aug_marking_update k m om h1 in
+                           let (newm2, newspec2) = aug_marking_update k newm1 om h2 in
+                           (newm2, H_CTLSKD_OR (newspec1, newspec2))
+  | H_CTLSKD_AND (h1,h2) -> let (newm1, newspec1) = aug_marking_update k m om h1 in
+                           let (newm2, newspec2) = aug_marking_update k newm1 om h2 in
+                           (newm2, H_CTLSKD_AND (newspec1, newspec2))
+  | H_CTLSKD_A p -> let (newm, newspec) = aug_path_marking_update k m om p in
+                    (newm, H_CTLSKD_A newspec)
+  | H_CTLSKD_E p -> let (newm, newspec) = aug_path_marking_update k m om p in
+                    (newm, H_CTLSKD_E newspec)
+  | H_CTLSKD_K h ->
+     begin match (is_history_ctls h) with
+     | true -> let states_h_true = check_ctls k m (history_ctlskd_to_ctls h) in
+               let fresh = fresh_atp m in
+               let newm = (fresh, List.filter (filter_k states_h_true) (get_states k))::m in
+               (newm, H_CTLSKD_AP fresh)
+     | false -> let (newm, newspec) = aug_marking_update k m om h in
+                aug_marking_update k newm om (H_CTLSKD_K newspec)
+     end
+  | H_CTLSKD_D (o,h) ->
+     begin match (is_history_ctls h) with
+     | true -> let states_h_true = check_ctls k m (history_ctlskd_to_ctls h) in
+               let fresh = fresh_atp m in
+               let newm = (fresh, List.filter (filter_delta om states_h_true o) (get_states k))::m in
+               (newm, H_CTLSKD_AP fresh)
+     | false -> let (newm, newspec) = aug_marking_update k m om h in
+                aug_marking_update k newm om (H_CTLSKD_D (o,newspec))
+     end
+and aug_path_marking_update (k:kripke) (m:marking) (om:obs_marking) (spec:path_ctlskd): (marking * path_ctlskd) =
+  match spec with
+  | P_CTLSKD_H h -> let (newm, newspec) = aug_marking_update k m om h in
+                    (newm, P_CTLSKD_H newspec)
+  | P_CTLSKD_NEG p -> let (newm, newspec) = aug_path_marking_update k m om p in
+                      (newm, P_CTLSKD_NEG newspec)
+  | P_CTLSKD_OR (p1,p2) -> let (newm1, newspec1) = aug_path_marking_update k m om p1 in
+                           let (newm2, newspec2) = aug_path_marking_update k newm1 om p2 in
+                           (newm2, P_CTLSKD_OR (newspec1, newspec2))
+  | P_CTLSKD_AND (p1,p2) -> let (newm1, newspec1) = aug_path_marking_update k m om p1 in
+                            let (newm2, newspec2) = aug_path_marking_update k newm1 om p2 in
+                            (newm2, P_CTLSKD_AND (newspec1, newspec2))
+  | P_CTLSKD_X p -> let (newm, newspec) = aug_path_marking_update k m om p in
+                    (newm, P_CTLSKD_X newspec)
+  | P_CTLSKD_U (p1,p2) -> let (newm1, newspec1) = aug_path_marking_update k m om p1 in
+                          let (newm2, newspec2) = aug_path_marking_update k newm1 om p2 in
+                          (newm2, P_CTLSKD_U (newspec1, newspec2))
            
-(* CTL*KD model-Checking. Takes a model, an initial state, a marking and a specification *)
-let ctlskd_mc (k:kripke) (state_init:state) (m:marking) (obs_init:observation) (om:obs_marking) (spec:history_ctlskd): bool = true
+(* CTL*KD model-Checking. Takes a model, an initial state, a marking, an initial observation and a specification *)
+let ctlskd_mc (k:std_kripke) (state_init:std_state) (m:std_marking) (obs_init:observation) (om:obs_marking) (spec:history_ctlskd): bool =
+  let obs_list = get_obs_list obs_init spec in
+  let aug_k = augmented_kripke k obs_list om in
+  let aug_states = get_states aug_k in 
+  let aug_m = augmented_marking m aug_states in
+  let (newm, newspec) = aug_marking_update aug_k aug_m om spec in
+  let aug_state_init = A(state_init, ii state_init obs_init om (get_states k), obs_init) in
+  ctls_mc aug_k aug_state_init newm (history_ctlskd_to_ctls newspec)
