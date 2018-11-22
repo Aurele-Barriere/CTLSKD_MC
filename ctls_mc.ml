@@ -42,21 +42,21 @@ and lin_state_ctls_to_ltl (s:state_ctls): ltl =
   | _ -> failwith "not a linear CTL* formula"
 
 (* replace E phi with ! A ! phi in a CTL* formula. Returns an equivalent formula without E *)
-let rec remove_E (p:path_ctls): path_ctls =
+let rec normalize (p:path_ctls): path_ctls =
   match p with
-  | P_CTLS_S s -> P_CTLS_S (state_remove_E s)
-  | P_CTLS_NEG p' -> P_CTLS_NEG (remove_E p')
-  | P_CTLS_OR (p1,p2) -> P_CTLS_OR (remove_E p1, remove_E p2)
-  | P_CTLS_AND (p1,p2) -> P_CTLS_AND (remove_E p1, remove_E p2)
-  | P_CTLS_X p' -> P_CTLS_X (remove_E p')
-  | P_CTLS_U (p1,p2) -> P_CTLS_U (remove_E p1, remove_E p2)
-and state_remove_E (s:state_ctls): state_ctls =
+  | P_CTLS_S s -> P_CTLS_S (state_normalize s)
+  | P_CTLS_NEG p' -> P_CTLS_NEG (normalize p')
+  | P_CTLS_OR (p1,p2) -> P_CTLS_OR (normalize p1, normalize p2)
+  | P_CTLS_AND (p1,p2) -> P_CTLS_AND (normalize p1, normalize p2)
+  | P_CTLS_X p' -> P_CTLS_X (normalize p')
+  | P_CTLS_U (p1,p2) -> P_CTLS_U (normalize p1, normalize p2)
+and state_normalize (s:state_ctls): state_ctls =
   match s with
-  | ST_CTLS_NEG s' -> ST_CTLS_NEG (state_remove_E s')
-  | ST_CTLS_OR (s1,s2) -> ST_CTLS_OR (state_remove_E s1, state_remove_E s2)
-  | ST_CTLS_AND (s1,s2) -> ST_CTLS_AND (state_remove_E s1, state_remove_E s2)
-  | ST_CTLS_A p -> ST_CTLS_A (remove_E p)
-  | ST_CTLS_E p -> ST_CTLS_NEG ( ST_CTLS_A ( P_CTLS_NEG ( remove_E p)))
+  | ST_CTLS_NEG s' -> ST_CTLS_NEG (state_normalize s')
+  | ST_CTLS_OR (s1,s2) -> ST_CTLS_OR (state_normalize s1, state_normalize s2)
+  | ST_CTLS_AND (s1,s2) -> ST_CTLS_AND (state_normalize s1, state_normalize s2)
+  | ST_CTLS_A p -> ST_CTLS_A (normalize p)
+  | ST_CTLS_E p -> ST_CTLS_NEG ( ST_CTLS_A ( P_CTLS_NEG ( normalize p)))
   | _ -> s
 
 (* Returns list of states where a ltl spec holds *)
@@ -108,6 +108,6 @@ and path_marking_update (k:kripke) (m:marking) (spec:path_ctls): (marking * path
        
 (* CTL* model-Checking. Takes a model, an initial state, a marking and a specification *)
 let ctls_mc (k:kripke) (init:state) (m:marking) (spec:state_ctls): bool =
-  let simplspec = state_remove_E spec in (* simpl_spec has no E *)
+  let simplspec = state_normalize spec in (* simpl_spec has no E *)
   let (newm, newspec) = marking_update k m simplspec in (* newpsec is ltl *)
   ltl_mc k init newm (lin_state_ctls_to_ltl newspec)

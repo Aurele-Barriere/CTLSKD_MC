@@ -67,6 +67,48 @@ let augmented_kripke (k:std_kripke) (obs:observation list) (om:obs_marking): kri
   let aug_state_inf = augment_state_inf std_states std_states in
   let aug_states = augmented_states aug_state_inf obs in
   List.map (fun (x:state) -> (x, augmented_successors x om k)) aug_states
-       
+
+(* Is a CTL*KD formula a CTL* formula? No K or D *)
+let rec is_ctls (p:path_ctlskd): bool =
+  match p with
+  | P_CTLSKD_H h -> is_history_ctls h
+  | P_CTLSKD_NEG p' -> is_ctls p'
+  | P_CTLSKD_OR (p1,p2) -> is_ctls p1 && is_ctls p2
+  | P_CTLSKD_AND (p1,p2) -> is_ctls p1 && is_ctls p2
+  | P_CTLSKD_X p' -> is_ctls p'
+  | P_CTLSKD_U (p1,p2) -> is_ctls p1 && is_ctls p2
+and is_history_ctls (h:history_ctlskd) =
+  match h with
+  | H_CTLSKD_NEG h' -> is_history_ctls h'
+  | H_CTLSKD_OR (h1,h2) -> is_history_ctls h1 && is_history_ctls h2
+  | H_CTLSKD_AND (h1,h2) -> is_history_ctls h1 && is_history_ctls h2
+  | H_CTLSKD_A p -> is_ctls p
+  | H_CTLSKD_E p -> is_ctls p
+  | H_CTLSKD_K h -> false
+  | H_CTLSKD_D (o,h) -> false
+  | H_CTLSKD_TRUE -> true
+  | H_CTLSKD_AP a -> true
+
+(* Converting a ctlskd formula without K or D to a ctls formula *)
+let rec ctlskd_to_ctls (p:path_ctlskd): path_ctls =
+  match p with
+  | P_CTLSKD_H h -> P_CTLS_S (history_ctlskd_to_ctls h)
+  | P_CTLSKD_NEG p' -> P_CTLS_NEG (ctlskd_to_ctls p')
+  | P_CTLSKD_OR (p1,p2) -> P_CTLS_OR (ctlskd_to_ctls p1, ctlskd_to_ctls p2)
+  | P_CTLSKD_AND (p1,p2) -> P_CTLS_AND (ctlskd_to_ctls p1, ctlskd_to_ctls p2)
+  | P_CTLSKD_X p' -> P_CTLS_X (ctlskd_to_ctls p')
+  | P_CTLSKD_U (p1,p2) -> P_CTLS_U (ctlskd_to_ctls p1, ctlskd_to_ctls p2)
+and history_ctlskd_to_ctls (h:history_ctlskd): state_ctls =
+  match h with
+  | H_CTLSKD_TRUE -> ST_CTLS_TRUE
+  | H_CTLSKD_AP a -> ST_CTLS_AP a
+  | H_CTLSKD_NEG h' -> ST_CTLS_NEG (history_ctlskd_to_ctls h')
+  | H_CTLSKD_OR (h1,h2) -> ST_CTLS_OR (history_ctlskd_to_ctls h1, history_ctlskd_to_ctls h2)
+  | H_CTLSKD_AND (h1,h2) -> ST_CTLS_AND (history_ctlskd_to_ctls h1, history_ctlskd_to_ctls h2)
+  | H_CTLSKD_A p -> ST_CTLS_A (ctlskd_to_ctls p)
+  | H_CTLSKD_E p -> ST_CTLS_E (ctlskd_to_ctls p)
+  | H_CTLSKD_K h' -> failwith "not a ctls formula"
+  | H_CTLSKD_D (o,h) -> failwith "not a ctls formula"
+           
 (* CTL*KD model-Checking. Takes a model, an initial state, a marking and a specification *)
 let ctlskd_mc (k:kripke) (state_init:state) (m:marking) (obs_init:observation) (om:obs_marking) (spec:history_ctlskd): bool = true
