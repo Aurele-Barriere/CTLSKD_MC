@@ -68,6 +68,17 @@ let augmented_kripke (k:std_kripke) (obs:observation list) (om:obs_marking): kri
   let aug_states = augmented_states aug_state_inf obs in
   List.map (fun (x:state) -> (x, augmented_successors x om k)) aug_states
 
+(* Builds the augmented marking given a list of augmented states *)
+let rec augmented_marking (m:std_marking) (states: state list): marking =
+  match m with
+  | [] -> []
+  | (a,l)::m' -> (a,List.filter
+                      (fun (x:state) -> match x with
+                                        | I _ -> false
+                                        | A (s,i,o) -> List.mem s l)
+                      states)::
+                   augmented_marking m' states
+
 (* Is a CTL*KD formula a CTL* formula? No K or D *)
 let rec is_ctls (p:path_ctlskd): bool =
   match p with
@@ -109,6 +120,12 @@ and history_ctlskd_to_ctls (h:history_ctlskd): state_ctls =
   | H_CTLSKD_E p -> ST_CTLS_E (ctlskd_to_ctls p)
   | H_CTLSKD_K h' -> failwith "not a ctls formula"
   | H_CTLSKD_D (o,h) -> failwith "not a ctls formula"
+
+(* Returns list of augmented states where a CTLS spec holds *)
+let check_ctls (k:kripke) (m:marking) (spec:state_ctls):state list =
+  List.filter
+    (fun (x:state) -> ctls_mc k x m spec)
+    (get_states k)
            
 (* CTL*KD model-Checking. Takes a model, an initial state, a marking and a specification *)
 let ctlskd_mc (k:kripke) (state_init:state) (m:marking) (obs_init:observation) (om:obs_marking) (spec:history_ctlskd): bool = true
