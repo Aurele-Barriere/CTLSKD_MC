@@ -4,6 +4,7 @@ open Common
 open Models
 open Logics
 open Ctls_mc
+open Print
 
 (* Given 2 lists witout duplicates, append them removing the duplicates *)
 let rec append_no_dup (l1:'a list) (l2:' a list): 'a list =
@@ -25,7 +26,7 @@ let ud (s:std_state) (i:inf_set) (o:observation) (om:obs_marking): inf_set =
               
 (* Temporal Update UT *)
 let ut (s:std_state) (i:inf_set) (o:observation) (om:obs_marking) (k:std_kripke): inf_set =
-  List.filter (fun (x:std_state) -> eq_state om o s x) (build_successors i k)
+  sort_inf_set (List.filter (fun (x:std_state) -> eq_state om o s x) (build_successors i k))
 
 (* Initial information Set *)
 let ii (s:std_state) (o:observation) (om:obs_marking) (states:std_state list): inf_set =
@@ -34,7 +35,7 @@ let ii (s:std_state) (o:observation) (om:obs_marking) (states:std_state list): i
 (* Return all possible information states that contain true_state *)
 let rec augment_inf (true_state:std_state) (states: std_state list): inf_set list =
   match states with
-  | [] -> []
+  | [] -> [[]]
   | s::l when s = true_state -> List.map (fun (ii:inf_set) -> s::ii) (augment_inf true_state l)
   | s::l -> let augmented_l = augment_inf true_state l in
             augmented_l @ List.map (fun (ii:inf_set) -> s::ii) augmented_l
@@ -51,7 +52,7 @@ let rec augmented_states (states_inf: (std_state * inf_set) list) (obs: observat
   match obs with
   | [] -> []
   | o::l ->
-     List.map (fun ((x,y):std_state * inf_set) -> A (x,y,o)) states_inf @
+     List.map (fun ((x,y):std_state * inf_set) -> A (x,sort_inf_set y,o)) states_inf @
        (augmented_states states_inf l)
 
 (* Builds the list of (augmented) successors of an augmented state *)
@@ -63,7 +64,7 @@ let augmented_successors (st:state) (om:obs_marking) (k:std_kripke): state list 
 
 (* Builds the augmented kripke model of a standard one *)
 let augmented_kripke (k:std_kripke) (obs:observation list) (om:obs_marking): kripke =
-  let std_states = get_states k in 
+  let std_states = get_states k in
   let aug_state_inf = augment_state_inf std_states std_states in
   let aug_states = augmented_states aug_state_inf obs in
   List.map (fun (x:state) -> (x, augmented_successors x om k)) aug_states
@@ -224,13 +225,18 @@ and aug_path_marking_update (k:kripke) (m:marking) (om:obs_marking) (spec:path_c
   | P_CTLSKD_U (p1,p2) -> let (newm1, newspec1) = aug_path_marking_update k m om p1 in
                           let (newm2, newspec2) = aug_path_marking_update k newm1 om p2 in
                           (newm2, P_CTLSKD_U (newspec1, newspec2))
-           
+                            
 (* CTL*KD model-Checking. Takes a model, an initial state, a marking, an initial observation and a specification *)
 let ctlskd_mc (k:std_kripke) (state_init:std_state) (m:std_marking) (obs_init:observation) (om:obs_marking) (spec:history_ctlskd): bool =
+  let _ = print_endline "original kripke" in
+  let _ = print_std_kripke k in
   let obs_list = get_obs_list obs_init spec in
   let aug_k = augmented_kripke k obs_list om in
-  let aug_states = get_states aug_k in 
+  let _ = print_endline "new kripke" in
+  let _ = print_kripke aug_k in
+  let aug_states = get_states aug_k in
   let aug_m = augmented_marking m aug_states in
   let (newm, newspec) = aug_marking_update aug_k aug_m om spec in
   let aug_state_init = A(state_init, ii state_init obs_init om (get_states k), obs_init) in
   ctls_mc aug_k aug_state_init newm (history_ctlskd_to_ctls newspec)
+

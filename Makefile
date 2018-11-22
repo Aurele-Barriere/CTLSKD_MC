@@ -1,6 +1,10 @@
-all: common.ml logics.ml models.ml ltl_mc.ml ctls_mc.ml ctlskd_mc.ml main.ml nusmv_wrapper.c
+all: common.ml logics.ml models.ml print.ml ltl_mc.ml ctls_mc.ml ctlskd_mc.ml main.ml nusmv_wrapper.c
 	gcc nusmv_wrapper.c -o nusmv_wrapper
-	ocamlc common.ml logics.ml models.ml ltl_mc.ml ctls_mc.ml ctlskd_mc.ml main.ml -o mc.out
+	ocamlc common.ml logics.ml models.ml print.ml ltl_mc.ml ctls_mc.ml ctlskd_mc.ml main.ml -o mc.out
+
+
+debug: common.ml logics.ml models.ml print.ml ltl_mc.ml ctls_mc.ml ctlskd_mc.ml main.ml nusmv_wrapper.c
+	ocamlc -g common.ml logics.ml models.ml print.ml ltl_mc.ml ctls_mc.ml ctlskd_mc.ml main.ml -o debug.out
 
 clean:
 	-rm *.cmi

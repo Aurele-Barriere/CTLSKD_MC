@@ -18,6 +18,10 @@ type inf_set = std_state list
 type state = I of std_state
            | A of std_state * inf_set * observation
 
+(* Sorting Inf set to give them an unique representation *)
+let sort_inf_set (i:inf_set): inf_set =
+  List.sort (fun (a:std_state) (b:std_state) -> a - b) i
+
 (* Writing states for NuSMV *)
 let rec string_of_I (i:inf_set): string =
   match i with
