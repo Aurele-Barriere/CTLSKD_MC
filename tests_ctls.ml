@@ -24,7 +24,7 @@ let rec generate_kripke_ctls (n:int): kripke =
   | 0 -> [(I 0,[I 0])]
   | _ -> let odd = (2*n) - 1 in
          let even = 2*n in
-         (I odd,[I odd]) :: ((I even, new_state odd) :: generate_kripke_ctls (n-1))
+         (I odd,[I odd]) :: ((I even, (I odd) :: new_state odd) :: generate_kripke_ctls (n-1))
               
        
 let main =
