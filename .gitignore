@@ -2,7 +2,11 @@
 *.out
 *.cmi
 *.cmo
-NuSMV
-nusmv_wrapper
-ltl
-output
+*.aux
+*.log
+*.pdf
+src/NuSMV
+src/nusmv_wrapper
+src/ltl
+src/output
+report/acmart-master
