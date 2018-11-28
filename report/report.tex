@@ -1,14 +1,181 @@
 \documentclass{acmart}
 
+\usepackage{graphicx}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{pgf,tikz}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{wrapfig}
+\usetikzlibrary{positioning}
+
 \title{Writing a CTLSKD Model-Checker in Ocaml}
 
 \author{Aur\`ele Barri\`ere}
 
 \date{December 2nd, 2018}
 
+
+% macros
+\def\ctls{CTL$^{*}$}
+\def\ctlsk{CTL$^{*}$K}
+\def\ctlskd{CTL$^{*}$K$\Delta$}
+\def\ctlskdp{CTL$^{*}$K$\Delta\psi$}
+\def\ltl{LTL}
+\def\ap{AP}
+\def\A{\mathit{A}}
+\def\E{\mathit{E}}
+\def\U{\mathit{U}}
+\def\R{\mathit{R}}
+\def\X{\mathit{X}}
+\def\K{\mathit{K}}
+\def\KP{\bar{\mathit{K}}}
+\def\D#1{\Delta^{#1}}
+\def\eq#1#2{\approx^{#2}_{#1}}
+\def\eqh#1{\approx_{#1}}
+\def\eqstate#1{\sim_{#1}}
+\def\todo#1{{\color{red}#1}}
+\def\iff{\ \mathit{iff}\ }
+\def\UD{U_{\Delta}}
+\def\UT{U_T}
+\def\UDK#1{U_{\Delta #1}}
+\def\UTK#1{U_{T #1}}
+\def\FV{\mathit{FH}}
+\def\FP{\mathit{FP}}
+\def\ktree{$k$-tree}
+\def\ktrees{$k$-trees}
+\def\qed{\hfill$\blacksquare$}
+
 \begin{document}
 \maketitle
 
-blabla
+\section{Introduction}
+
+Temporal Logics are a convenient formalism when it comes to reasonning about knowledge in dynamic systems.
+Similarly, Epistemic Logics allow to describe and reason about knowledge in distributed systems, or systems with imperfect information.
+Combining the two kinds of logics for Epistemic Temporal Logics is a popular field with many uses, as in Artificial Intelligence or Game Theory.
+In many real-world applications, several agents are involved, each with its own view of the world, and things evolve dynamically.
+
+In an earlier work [?], we defined a new Epistemic Temporal Logic, \ctlskd.
+It extends the \ctlsk\ logic, a well-known epistemic extension of \ctls, a popular temporal logic.
+While \ctlsk\ added to \ctls\ the $\K$ operator to model agents knowledge, \ctlskd\ adds the operator $\Delta$, that allows agents to change their ``observational power'', or their point of view on the system.
+For instance, the formula $\D{o}\K\A\X p$ means that after changing to an observation o, the agent knows that, on the next step, the proposition p will hold, whatever path has been taken by the system.
+To the best of our knowledge, this was the first time that such a change was enabled in an Epistemic Temporal Logic.
+
+For Epistemic and/or Temporal Logics, model-checking (deciding if a formula is true in a model) is an important problem, as it allows to confront a specification and the modelization of a system.
+In [?], we showed that model-checking \ctlskd\ could be reduced to the model-checking of \ctls. The model-checking of \ctls\ is itself known to be reducable to the model-checking of \ltl\ [?], another classical Temporal Logic.
+We previously defined and model-checked \ctlskd\ in a multi-agent setting. However, this work will focus on the implementation of a \textbf{single-agent} \ctlskd\ model-checker. This choice was made for simplicity and the algorithm is almost identical.
+
+In this report, I present my work on implementing a model-checker of \ctlskd. To this end, we use NuSMV [?], a \ltl\ model-checker, and build a \ctls\ model-checker, then a  \ctlskd\ model-checker, using the reductions.
+The implementation is done in OCaml, and can be found online [?]. In a first section, we present the logics and their formalization, then the reductions. We then discuss the implementation itself. Finally, we present a way to evaluate our implementation.
+
+
+\section{Formally Model-Checking \ctlskd}
+Most of this section comes from our previous work [?,?]. More details can be found there.
+The following sections will only focus on new work.
+
+\subsection{Single agent \ctlskd}
+\subsubsection{Syntax}
+
+We begin by introducing the syntax of \ctlskd. 
+We consider $\mathcal{O}$ to be a set of \textit{observations}, that each represent a possible observational power of the agent. $\mathit{AP}$ is a set of atomic propositions.
+Formulas of \ctlskd\ can be \textit{history formulas} $\varphi$ or \textit{path formulas} $\psi$.
+
+$$\varphi := p ~|~ \neg \varphi ~|~ \varphi\wedge\varphi ~|~ \varphi\vee\varphi ~|~ \A\psi ~|~ \E\psi ~|~ \K\varphi ~|~ \D{o}\varphi$$
+$$\psi := \varphi ~|~ \neg\psi ~|~ \psi\wedge\psi ~|~ \X\psi ~|~ \psi\U\psi$$
+
+Where $p\in\mathit{AP}$ and $o\in\mathcal{O}$.
+The temporal operators $\X$ and $\U$ are meant to represent the typical \textit{next} and \textit{until} operators of temporal logics.
+$\A$ is a path quantifier, similar to those found in branching-time logics. Intuitively, $\A\psi$ should hold for a history if $\psi$ is true in every possible future. $\E$ is $\A$' dual.
+$\K$ is an epistemic operator. Intuitively, $\K\varphi$ should be true whenever the agent knows that $\varphi$ is true. We introduce a new one, $\D{o}$, to represent a change of observation.
+$\varphi$ is called a history formula, as we only need to know what happened in the past to decide if the formula is true. $\psi$ is called a path formula as it also requires the future evolution of the system.
+
+\paragraph{Models}
+The models on which such formulas can be interpreted are classical Kripke Structure, with several equivalence relations between states (one for each observation). We note $M=(S,I_s,o_I,T,V,\eqstate{o_1},\dots,\eqstate{o_m})$.
+A \textit{run} or \textit{path} is an infinite sequence of states $\pi=\pi_0\pi_1\dots$. A \textit{history} is a finite sequence of states $h=h_1\dots h_n$.
+
+
+\subsubsection{Record Semantics}
+We first define the natural semantics of \ctlskd. To this end, we first define Observation Records.
+
+\paragraph{Observation records}
+Given $\mathcal{O}$ a set of observations, we define \textit{observations records} to be ordered lists of pairs of observations and natural numbers.
+Intuitively, an observation record represents changes of observations.
+
+\textbf{Example:}  $r=[(o_1,0),(o_2,3),(o_3,3)]$ means that the player starts at time 0 with observation $o_1$. It keeps this observation, then at time 3, it first changes to $o_2$ and then to $o_3$. We use observation records in the semantics to remember the previous observations of the agent.
+
+We write $r[(o,n)]$ to append a new pair $(o,n)$ to the observation record $r$.
+We write $r_{\leq n}$ the record $r$ without the pairs $(o,m)$ where $m>n$.
+We write $r_n$ the record $r$ without the pairs $(o,m)$ where $m\neq n$. 
+We define a function $\mathit{O}(r,n)$ which gives a tuple of the observations used at time $n$. 
+
+On a given model, with an observation record we can define an equivalence relation between histories, with regard to a record. Two histories are equivalent with regard to the record if the player can't distinguish them by using the observations in the record.\\
+$h\eqh{r}h'\quad\iff\quad \forall i< |h|, \forall o\in \mathit{O}(r,i), h(i)\eqstate{o} h'(i)~\textit{and}~|h|=|h'|.$
+
+
+Finally, the semantics are defined as follows:
+History formulas need a history $h$ (finite sequence of previous states) and an observation record $r$ to be interpreted, to know which history might be considered possible for the agent.
+Path formulas are interpreted on a run $\pi$ (infinite sequence of states of the model), a point in time (natural number), and an observation record.
+
+\begin{tabular}{l c l}
+  $M,h,r \models p $&$ \iff $&$ p\in V(\mathit{last}(h))$\\
+  $M,h,r \models \neg\varphi $&$ \iff $&$ M,h,r\not\models\varphi$\\
+  $M,h,r \models \varphi_1\wedge\varphi_2 $&$ \iff $&$ (M,h,r\models\varphi_1~\text{and}~ M,h,r\models\varphi_2)$\\
+  $M,h,r \models \varphi_1\vee\varphi_2 $&$ \iff $&$ (M,h,r\models\varphi_1~\text{or}~ M,h,r\models\varphi_2)$\\
+  $M,h,r \models \A\psi  $&$ \iff $&$ \forall\pi$ that extends $h$, we have $M,\pi,|h|-1,r\models\psi$\\
+  $M,h,r \models \E\psi  $&$ \iff $&$ \exists\pi$ that extends $h$, we have $M,\pi,|h|-1,r\models\psi$\\
+  $M,h,r \models\K\varphi  $&$ \iff $&$ \forall h'$ such that $h'\eqh{r}h$, we have $M,h',r\models\varphi$\\
+  $M,h,r \models \D{o}\varphi $&$ \iff $&$ M,h,r[(o,|h|-1)]\models\varphi$\\
+  $M,\pi,n,r\models\varphi $&$ \iff $&$ M,(\pi_0\dots\pi_n),r\models\varphi$\\
+  $M,\pi,n,r\models\neg\psi $&$ \iff $&$ M,\pi,n,r\not\models\psi$\\
+  $M,\pi,n,r\models \psi_1\wedge\psi_2 $&$ \iff $&$ (M,\pi,r,n\models\psi_1~\text{and}~ M,\pi,r,n\models\psi_2)$\\
+  $M,\pi,n,r\models\X\psi $&$ \iff $&$  M,\pi,(n+1),r\models\psi$\\
+  $M,\pi,n,r\models \psi_1\U\psi_2 $&$ \iff $&$ \exists m\geq n$ such that $\forall k\in[n,m[, M,\pi,k,r\models\psi_1$\\
+   & & and $M,\pi,m,r\models\psi_2$
+\end{tabular}
+
+Finally, we say that $M=(S,I_s,o_I,T,V,\eqstate{o_1},\dots,\eqstate{o_m})$ models $\varphi$ (written $M\models\varphi$), if $\forall s\in I_s, M,s,[(o_I,0)]\models\varphi$. This definition corresponds to the model-checking problem.
+
+\subsection{Model-Checking \ctlskd}
+Because of perfect-recall semantics, it may seem that we have to remember the complete history and records when evaluating a formula. However, we can extract some information from the history that is sufficient for the evaluation of the formula. Intuitively, to evaluate a history formula, it is enough to know the current state, the current observation and the set of states that the agent believes the system might be in (called the \textit{Information Set}). This new structure to represent the knowledge is more succinct than remembering entire histories and records, as there is a finite number of information sets.
+
+We define two functions to update information sets. $\UD$ updates the set when a player goes through a change of observation and $\UT$ updates the set when the player moves to a new state. 
+\begin{tabular}{r c c c l}
+$\UD(I,s,o)$& = &$\{x\in I$ & $|$ & $x\eqstate{o}s\}$\\
+$\UT(I,s,o)$& = &$\{x\in S$ & $|$ & $\exists t\in I, t\rightarrow x ~\text{and}~ x\eqstate{o}s\}$\\
+\end{tabular}
+
+A few rules from this new semantics are:
+\begin{tabular}{l c l}
+  $M,s,I,o\models p $&$ \iff $&$ p\in V(s)$\\
+  $M,s,I,o\models\A\psi $&$ \iff $&$ \forall\pi$ such that $\pi_0=s$, we have $M,\pi,I,o\models\psi$\\
+  $M,s,I,o\models\K\varphi $&$ \iff $&$ \forall s'\in I$, we have $M,s',I,o\models\varphi$\\
+  $M,s,I,o'\models\D{o}\varphi $&$ \iff $&$ M,s,\UD(I,s,o),o\models\varphi$\\
+  $M,\pi,I,o\models\X\psi $&$ \iff $&$ M,\pi_{1\dots},\UT(I,\pi_1,o),o\models\psi$\\
+\end{tabular}
+
+We proved in [?] the following theorem:
+$\forall \varphi,h,r,s,I,o$ such that $\FV(h,r)=(s,I,o)$, $M,h,r\models\varphi\iff M,s,I,o\models\varphi$.
+Where $\FV$ is a function that relates histories and observation records to the corresponding current state, information set and observation.
+This proves that the two semantics are equivalent, and it suffices to model-check the information set semantics.
+
+To this end, from $M=(S,I,o_I,T,V,\eqstate{o_1},\dots,\eqstate{o_m})$ we define the augmented model $\hat{M}=(S',T',V')$, a Kripke Structure.
+\begin{itemize}
+\item $S'=S\times 2^{S}\times \mathcal{O}$: states are state of the original model, an observation set and an observation.
+\item $(s,I,o)~T'~(s',I',o)\iff s~T~s'$ and $I'=\UT(I,s',o)$
+\item $V'(s,I,o)=V(s)$. As the algorithm is executed, new atomic propositions will appear.
+\end{itemize}
+
+Finally, any formula of \ctlskd can be model-checked with a marking algorithm on the (finite) augmented model.
+Intuitively, for each $\D{o}\varphi$ where $\varphi$ is a \ctls\ formula, we model-check $\varphi$ on each state of $\hat{M}$.
+Then, we mark each state $(s,I,o')$ of $\hat{M}$ with a new atomic proposition if $\varphi$ holds on $(s,\UD(I,s,o),o)$.
+Similarly for formulas $\K\varphi$ where $\varphi$ is a \ctls\ formula, a state $(s,I,o)$ is marked with a new atomic proposition if $\varphi$ holds in each $(s',I,o)$ where $s'\in I$.
+
+Finally, we replace either $\D{o}\varphi$ or $\K\varphi$ in the formula with the new atomic proposition, and start from the beginning until there are no more $\K$ or $\Delta$ operators in the formula. The remaining formula can be model-checked with the \ctls\ model-checker.
+
+The definition of the Information Set semantics makes the correctness of the algorithm almost trivial.
+
+\section{Implementation}
 
 \end{document}
