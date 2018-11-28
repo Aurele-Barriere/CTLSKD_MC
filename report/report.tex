@@ -87,7 +87,7 @@ $$\psi := \varphi ~|~ \neg\psi ~|~ \psi\wedge\psi ~|~ \X\psi ~|~ \psi\U\psi$$
 
 Where $p\in\mathit{AP}$ and $o\in\mathcal{O}$.
 The temporal operators $\X$ and $\U$ are meant to represent the typical \textit{next} and \textit{until} operators of temporal logics.
-$\A$ is a path quantifier, similar to those found in branching-time logics. Intuitively, $\A\psi$ should hold for a history if $\psi$ is true in every possible future. $\E$ is $\A$' dual.
+$\A$ is a path quantifier, similar to those found in branching-time logics. Intuitively, $\A\psi$ should hold for a history if $\psi$ is true in every possible future. $\E$ is $\A$'s dual.
 $\K$ is an epistemic operator. Intuitively, $\K\varphi$ should be true whenever the agent knows that $\varphi$ is true. We introduce a new one, $\D{o}$, to represent a change of observation.
 $\varphi$ is called a history formula, as we only need to know what happened in the past to decide if the formula is true. $\psi$ is called a path formula as it also requires the future evolution of the system.
 
@@ -177,5 +177,122 @@ Finally, we replace either $\D{o}\varphi$ or $\K\varphi$ in the formula with the
 The definition of the Information Set semantics makes the correctness of the algorithm almost trivial.
 
 \section{Implementation}
+
+\subsection{Types}
+Our models can either be standard models, where each state can be numbered, or augmented models for the model-checking of \ctlskd.
+States of augmented models include a standard state, an information set and an observation
+
+Thus we define our states as such:
+\begin{lstlisting}
+  type std_state = int
+  type inf_set = std_state list
+  type state = I of std_state
+             | A of std_state * inf_set * observation
+\end{lstlisting}
+
+When building augmented states, we make sure that the information sets have no duplicates and are ordered, which guarantees that each augmented state has a unique representation.
+
+Kripke structure are then defined. The \texttt{kripke} type represents the states and transition of a Kripke Structure: each element of the list is a state and its list of successors.
+A marking represents the valuation function. Each element of the list contains an atomic proposition and the list of states wher it holds.
+Decoupling the two types allows to add new atomic propositions without changing the underlying structure easily, which will prove useful for marking algorithms.
+Observations equivalence relations are described with the \texttt{obs\_marking} type. It maps observations and states to a value. 
+
+\begin{lstlisting}
+  type kripke = (state * state list) list
+  type std_kripke = (std_state * std_state list) list
+  type marking = (atp * state list) list
+  type std_marking = (atp * std_state list) list
+  module ObsMap = Map.Make(struct type t = (observation * std_state) let compare = compare end)
+  type obs_marking = int ObsMap.t
+  let eq_state (om:obs_marking) (o:observation) (s1:std_state) (s2:std_state): bool =
+    ObsMap.find (o,s1) om = ObsMap.find (o,s2) om
+\end{lstlisting}
+
+
+We then define the 3 logics' syntaxes:
+\begin{lstlisting}
+type ltl =
+  | LTL_TRUE
+  | LTL_AP of atp
+  | LTL_NEG of ltl
+  | LTL_OR of ltl* ltl
+  | LTL_AND of ltl* ltl
+  | LTL_X of ltl
+  | LTL_U of ltl* ltl
+
+type state_ctls =
+  | ST_CTLS_TRUE
+  | ST_CTLS_AP of atp
+  | ST_CTLS_NEG of state_ctls
+  | ST_CTLS_OR of state_ctls * state_ctls
+  | ST_CTLS_AND of state_ctls * state_ctls
+  | ST_CTLS_A of path_ctls
+  | ST_CTLS_E of path_ctls
+ and path_ctls =
+   | P_CTLS_S of state_ctls
+   | P_CTLS_NEG of path_ctls
+   | P_CTLS_OR of path_ctls * path_ctls
+   | P_CTLS_AND of path_ctls * path_ctls
+   | P_CTLS_X of path_ctls
+   | P_CTLS_U of path_ctls * path_ctls
+
+type history_ctlskd =
+  | H_CTLSKD_TRUE
+  | H_CTLSKD_AP of atp
+  | H_CTLSKD_NEG of history_ctlskd
+  | H_CTLSKD_OR of history_ctlskd * history_ctlskd
+  | H_CTLSKD_AND of history_ctlskd * history_ctlskd
+  | H_CTLSKD_A of path_ctlskd
+  | H_CTLSKD_E of path_ctlskd
+  | H_CTLSKD_K of history_ctlskd
+  | H_CTLSKD_D of observation * history_ctlskd
+ and path_ctlskd =
+   | P_CTLSKD_H of history_ctlskd
+   | P_CTLSKD_NEG of path_ctlskd
+   | P_CTLSKD_OR of path_ctlskd * path_ctlskd
+   | P_CTLSKD_AND of path_ctlskd * path_ctlskd
+   | P_CTLSKD_X of path_ctlskd
+   | P_CTLSKD_U of path_ctlskd * path_ctlskd
+\end{lstlisting}
+
+
+Given these types, we can define the signature of our 3 model-checking procedures:
+
+\begin{lstlisting}
+  let ltl_mc (k:kripke) (init:state) (m:marking) (spec:ltl): bool = ...
+  let ctls_mc (k:kripke) (init:state) (m:marking) (spec:state_ctls): bool = ...
+  let ctlskd_mc (k:std_kripke) (state_init:std_state) (m:std_marking) (obs_init:observation) (om:obs_marking) (spec:history_ctlskd): bool = ...
+\end{lstlisting}
+
+Notice how \ltl\ and \ctls\ model-checkers take as input generic kripke structure (either standard or augmented), while the \ctlskd\ function takes a standard kripke structure. It will then build the augmented model and give it to the \ctls\ function, which in turn calls the \ltl\ one on the same model.
+Similarly, as only \ctlskd\ has imperfect information, its function is the only one requiring an observation marking and an initial observation.
+
+\subsection{\ltl\ Model-Checking}
+As we use NuSMV, a \ltl\ model-checker, our model-checking procedure can simply call it.
+However, NuSMV only works on an input file. We then write several functions to translate a \ltl\ model-checking problem as a file following the syntax of NuSMV.
+We then call the NuSMV executable on this file. Because its output is a long string, we write a small wrapper in C to analyze it and simply return 1 or 0 depending on the result. This returned value can be obtained in Ocaml by using the \texttt{Sys.command} function.
+
+\subsection{\ctls\ Model-Checking}
+
+\subsection{\ctlskd\ Model-Checking}
+
+
+\section{Evaluation}
+% general stuff (size, no parser etc.)
+% generic tests
+% parametric tests
+% complexity
+
+\section{Future Works}
+% multi agent
+% parser
+% binding nusmv
+% other solvers
+% rigorous testing
+% reduce size of augmented model
+
+\section{Conclusion}
+
+
 
 \end{document}
