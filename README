@@ -1,0 +1,7 @@
+CTL*KD Model-Checker
+
+Put the executable NuSMV in src/, then type make.
+This generates mc.out, which tests all model-checkers.
+
+make tests also builds 3 executable for testing ltl, ctls and ctlskd model-checking.
+These executable take 2 arguments: size of the formula and size of the model to generate.
