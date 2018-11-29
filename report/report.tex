@@ -1,4 +1,4 @@
-\documentclass[sigconf]{acmart}
+\documentclass{acmart}
 
 \usepackage{graphicx}
 \usepackage{amssymb}
@@ -310,25 +310,76 @@ When dealing with an $\A\varphi$, we call the model-checker on each states to ma
                 marking_update k newm (ST_CTLS_A newspec)
      end
 \end{lstlisting}
-Note that, if $\varphi$ is not a linear formula, we don't replace it right away, as the \ltl\ procedure only deals with \ltl\ formulas. We thus only replace the innermost... TODO
+Note that, if $\varphi$ is not a linear formula, we don't replace it right away, as the \ltl\ procedure only deals with \ltl\ formulas. In that case, we first replace the inner sub-formulas.
+
+We have one such case for each possible inductive case. We don't define any for $\E\varphi$ as we replaced them earlier.
+Finally, the \texttt{marking\_update} function returns a new marking and a new specification. This formula is linear (no more $\A\varphi$), and checking it in \ltl\ with the new marking is equivalent to model-checking the original problem.
 
 \subsection{\ctlskd\ Model-Checking}
+As seen on section [?], model-checking \ctlskd\ can be done once again with a marking algorithm.
+However, this marking operates on the augmented model.
+We first define functions to build an augmented model (along with its valuation of atomic propositions) from a standard kripke structure.
+
+\begin{lstlisting}
+  let augmented_kripke (k:std_kripke) (obs:observation list) (om:obs_marking): kripke = ...
+  let rec augmented_marking (m:std_marking) (states: state list): marking = ...
+\end{lstlisting}
+
+We can then define the marking algorithm in similar way than \ctls. This time, the formulas that will be replaced by fresh atomic propositions are $\K\varphi$ and $\D{o}\varphi$, where $\varphi$ is a \ctls\ formula. More details can be found in [?].
+For instance, for $\D{o}\varphi$ formulas:
+\begin{lstlisting}
+  | H_CTLSKD_D (o,h) ->
+     begin match (is_history_ctls h) with
+     | true -> let states_h_true = check_ctls k m (history_ctlskd_to_ctls h) in
+               let fresh = fresh_atp m in
+               let newm = (fresh, List.filter (filter_delta om states_h_true o) (get_states k))::m in
+               (newm, H_CTLSKD_AP fresh)
+     | false -> let (newm, newspec) = aug_marking_update k m om h in
+                aug_marking_update k newm om (H_CTLSKD_D (o,newspec))
+     end
+\end{lstlisting}
 
 
 \section{Evaluation}
-% general stuff (size, no parser etc.)
-% generic tests
-% parametric tests
-% complexity
+Our implementation was successfully written in Ocaml. It is available online [?], but requires a NuSMV executable (also available online for free [?]). It required over 800 lines of commented OCaml and a small NuSMV wrapper written in C.
+
+Only the model-checking procedures were implemented, meaning that there is currently no parser to get a formula and a model. One has to write directly in the Ocaml syntax, which makes for unnecessary long definitions.
+
+To evaluate our implementation, we first wrote a few generic tests on small models, such that we could know the answer.
+All of these test return the expected result.
+
+We then created parametric tests for each of our logics. These take 2 arguments (the model's size and the formula's size), build a problem and solve it. This allows to study the time comlpexity of our procedures.
+
+TODO
 
 \section{Future Works}
-% multi agent
-% parser
-% binding nusmv
-% other solvers
-% rigorous testing
-% reduce size of augmented model
-% counter-example generation
+Our implementation seem to give correct results so far, but could be improved in numerous ways.
+
+\paragraph{Parsing}
+We could allow the user to write an input file in a given syntax (maybe the same as NuSMV's).
+
+\paragraph{Multi-Agent}
+In [?], we defne \ctlskd\ for multi agent settings. Each $\K$ and $\Delta$ operators takes an additional parameter to indicate the relevant agent.
+We showed that the model-checking algorithm is almost identical, but needs to use $k$-trees instead of Information Sets (a tree that represents one agent's knowledge of the other agents' knowledge, introduced in [?]).
+This would be an easy extension to our implementation.
+
+\paragraph{Polymorphism}
+We didn't use all the polymorphic features of OCaml. A more elegant way to define models would have been to use a more abstract type for states. We kept it simple for this proof-of-concept implementation.
+
+\paragraph{Other Solvers}
+We currenlty only use NuSMV, but there are numerous other \ltl\ solvers. Another good choice would have been SPIN [?].
+It would be interesting to compare the results in our setting.
+
+\paragraph{Binding NuSMV}
+In this version, we write to a file each \ltl\ problem for NuSMV to parse and solve. We might be losing a lot of time doing useless writing and parsing (our representation is already parsed). A good solution would be to bind our representation to NuSMV's, and call their own functions directly. Such C-OCaml interfacing can be done, but would require some time to understand NuSMV's code.
+
+\paragraph{Splitting the augmented model}
+In our \ctlskd\ model-checking procedure, we give the entire augmented model to the \ctls\ model-checker.
+However, the augmented model is actually composed of $o$ disjoint components, where $o$ is the number of observations.
+As \ctls\ and \ltl\ model-checking complexity depends on the size of the model, we could probably save some time by giving them the appropriate component of the augmented model. If NuSMV performs reachable state analysis, this would only save the time of writing and parsing too many states and transitions.
+
+\paragraph{Counter-Example generation}
+NuSMV finds a counter-example in false specifications. We believe that, using these counter-examples, we could build one for the \ctlskd\ model-checking problem. However, NuSMV's output when printing a counter-example isn't directly exploitable (states are renamed for instance).
 
 \section{Conclusion}
 
