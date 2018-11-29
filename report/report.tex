@@ -1,4 +1,4 @@
-\documentclass{acmart}
+\documentclass[sigconf]{acmart}
 
 \usepackage{graphicx}
 \usepackage{amssymb}
@@ -176,7 +176,7 @@ Finally, we replace either $\D{o}\varphi$ or $\K\varphi$ in the formula with the
 
 The definition of the Information Set semantics makes the correctness of the algorithm almost trivial.
 
-\section{Implementation}
+\section{Our Approach to Implementing a \ctlskd\ model-checker}
 
 \subsection{Types}
 Our models can either be standard models, where each state can be numbered, or augmented models for the model-checking of \ctlskd.
@@ -273,6 +273,44 @@ However, NuSMV only works on an input file. We then write several functions to t
 We then call the NuSMV executable on this file. Because its output is a long string, we write a small wrapper in C to analyze it and simply return 1 or 0 depending on the result. This returned value can be obtained in Ocaml by using the \texttt{Sys.command} function.
 
 \subsection{\ctls\ Model-Checking}
+An algorithm to create a \ctls\ model-checker from a \ltl\ one can be seen in [?].
+This is a simple marking algorithm on formulas of the form $\E\varphi$.
+
+However, in this algorithm, the authors assume that the \ltl\ model-checking procedure returns true if the formula is true in at least one path starting from the initial state (\ltl\ formulas are evaluated on paths).
+NuSMV returns true if the formula holds in all paths starting from the initial state.
+We thus adapt the algorithm to mark on all sub-formulas $\A\varphi$, and replace every $\E\varphi$ with $\neg\A\neg\varphi$.
+
+Finally, all the marking algorithms from [?] and [?] were written in an imperative way.
+We design a marking recursive function for functional languages.
+We use the pattern-matching feature of OCaml to match on the inductive structure of formulas to model-check.
+In practice, our function has the following signature:
+
+\begin{lstlisting}
+  let rec marking_update (k:kripke) (m:marking) (spec:state_ctls): (marking * state_ctls) = ...
+  and path_marking_update (k:kripke) (m:marking) (spec:path_ctls): (marking * path_ctls) = ...
+\end{lstlisting}
+
+This function takes a structure, with its marking and a specification. It returns a new marking and a new specification, where in the new formula, each sub-formula $\A\varphi$ has been replaced with a fresh atomic proposition, and the new marking contains the truth assignment for each of these new propositions.
+
+Most cases simply call the function recursively on subformulas:
+\begin{lstlisting}
+    | ST_CTLS_OR (s1,s2) -> let (newm1, newspec1) = marking_update k m s1 in
+                          let (newm2, newspec2) = marking_update k newm1 s2 in
+                          (newm2, ST_CTLS_OR (newspec1, newspec2))
+\end{lstlisting}
+
+When dealing with an $\A\varphi$, we call the model-checker on each states to mark the correct states:
+\begin{lstlisting}
+  | ST_CTLS_A p ->
+     begin match is_linear_ctls p with
+     | true -> let fresh = fresh_atp m in
+               let newm = (fresh, check_ltl k m (linear_ctls_to_ltl p))::m in
+               (newm, ST_CTLS_AP fresh)
+     | false -> let (newm, newspec) = path_marking_update k m p in
+                marking_update k newm (ST_CTLS_A newspec)
+     end
+\end{lstlisting}
+Note that, if $\varphi$ is not a linear formula, we don't replace it right away, as the \ltl\ procedure only deals with \ltl\ formulas. We thus only replace the innermost... TODO
 
 \subsection{\ctlskd\ Model-Checking}
 
@@ -290,6 +328,7 @@ We then call the NuSMV executable on this file. Because its output is a long str
 % other solvers
 % rigorous testing
 % reduce size of augmented model
+% counter-example generation
 
 \section{Conclusion}
 
