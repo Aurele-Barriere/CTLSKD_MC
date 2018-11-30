@@ -30,7 +30,7 @@ let ut (s:std_state) (i:inf_set) (o:observation) (om:obs_marking) (k:std_kripke)
 
 (* Initial information Set *)
 let ii (s:std_state) (o:observation) (om:obs_marking) (states:std_state list): inf_set =
-  List.filter (fun (x:std_state) -> eq_state om o s x) states
+  sort_inf_set (List.filter (fun (x:std_state) -> eq_state om o s x) states)
 
 (* Return all possible information states that contain true_state *)
 let rec augment_inf (true_state:std_state) (states: std_state list): inf_set list =
