@@ -1,14 +1,12 @@
-\documentclass{acmart}
+\documentclass[dvipsnames]{acmart}
 
 \usepackage{graphicx}
 \usepackage{amssymb}
 \usepackage{amsmath}
 \usepackage{listings}
+\usepackage{xcolor}
 \usepackage{pgf,tikz}
-\usepackage{algorithm}
-\usepackage{algpseudocode}
-\usepackage{wrapfig}
-\usetikzlibrary{positioning}
+
 
 \title{Writing a CTLSKD Model-Checker in Ocaml}
 
@@ -16,6 +14,17 @@
 
 \date{December 2nd, 2018}
 
+\lstset{language=[Objective]{Caml},
+                basicstyle=\ttfamily\footnotesize,
+                keywordstyle=\color{RedViolet}\ttfamily,
+                stringstyle=\color{Violet}\ttfamily,
+                commentstyle=\color{MidnightBlue}\ttfamily,
+                morecomment=[l][\color{magenta}]{\#},
+                morekeywords={Bool, Key, size_t},
+                emph={%  
+                  kripke, obs_marking, marking, state, std_state, std_kripke, std_marking, inf_set, observation, atp, ltl, state_ctls, path_ctls, history_ctlskd, path_ctlskd%
+                },emphstyle={\color{Maroon}}
+}
 
 % macros
 \def\ctls{CTL$^{*}$}
@@ -261,7 +270,8 @@ Given these types, we can define the signature of our 3 model-checking procedure
 \begin{lstlisting}
   let ltl_mc (k:kripke) (init:state) (m:marking) (spec:ltl): bool = ...
   let ctls_mc (k:kripke) (init:state) (m:marking) (spec:state_ctls): bool = ...
-  let ctlskd_mc (k:std_kripke) (state_init:std_state) (m:std_marking) (obs_init:observation) (om:obs_marking) (spec:history_ctlskd): bool = ...
+  let ctlskd_mc (k:std_kripke) (state_init:std_state) (m:std_marking) (obs_init:observation)
+                (om:obs_marking) (spec:history_ctlskd): bool = ...
 \end{lstlisting}
 
 Notice how \ltl\ and \ctls\ model-checkers take as input generic kripke structure (either standard or augmented), while the \ctlskd\ function takes a standard kripke structure. It will then build the augmented model and give it to the \ctls\ function, which in turn calls the \ltl\ one on the same model.
@@ -346,14 +356,14 @@ Our implementation was successfully written in Ocaml. It is available online [?]
 Only the model-checking procedures were implemented, meaning that there is currently no parser to get a formula and a model. One has to write directly in the Ocaml syntax, which makes for unnecessary long definitions.
 
 To evaluate our implementation, we first wrote a few generic tests on small models, such that we could know the answer.
-All of these test return the expected result.
+All of these tests return the expected result.
 
 We then created parametric tests for each of our logics. These take 2 arguments (the model's size and the formula's size), build a problem and solve it. This allows to study the time comlpexity of our procedures.
 
 TODO
 
 \section{Future Works}
-Our implementation seem to give correct results so far, but could be improved in numerous ways.
+Our implementation seems to give correct results so far, but could be improved in numerous ways.
 
 \paragraph{Parsing}
 We could allow the user to write an input file in a given syntax (maybe the same as NuSMV's).
@@ -380,6 +390,8 @@ As \ctls\ and \ltl\ model-checking complexity depends on the size of the model, 
 
 \paragraph{Counter-Example generation}
 NuSMV finds a counter-example in false specifications. We believe that, using these counter-examples, we could build one for the \ctlskd\ model-checking problem. However, NuSMV's output when printing a counter-example isn't directly exploitable (states are renamed for instance).
+
+\section{Acknowledgements}
 
 \section{Conclusion}
 
