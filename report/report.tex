@@ -6,7 +6,7 @@
 \usepackage{listings}
 \usepackage{xcolor}
 \usepackage{pgf,tikz}
-
+\usepackage{multicol}
 
 \title{Writing a CTLSKD Model-Checker in Ocaml}
 
@@ -20,7 +20,7 @@
                 stringstyle=\color{Violet}\ttfamily,
                 commentstyle=\color{MidnightBlue}\ttfamily,
                 morecomment=[l][\color{magenta}]{\#},
-                morekeywords={Bool, Key, size_t},
+                morekeywords={bool, list, int},
                 emph={%  
                   kripke, obs_marking, marking, state, std_state, std_kripke, std_marking, inf_set, observation, atp, ltl, state_ctls, path_ctls, history_ctlskd, path_ctlskd%
                 },emphstyle={\color{Maroon}}
@@ -61,7 +61,7 @@
 
 \section{Introduction}
 
-Temporal Logics are a convenient formalism when it comes to reasonning about knowledge in dynamic systems.
+Temporal Logics are a convenient formalism when it comes to reasoning about knowledge in dynamic systems.
 Similarly, Epistemic Logics allow to describe and reason about knowledge in distributed systems, or systems with imperfect information.
 Combining the two kinds of logics for Epistemic Temporal Logics is a popular field with many uses, as in Artificial Intelligence or Game Theory.
 In many real-world applications, several agents are involved, each with its own view of the world, and things evolve dynamically.
@@ -73,10 +73,10 @@ For instance, the formula $\D{o}\K\A\X p$ means that after changing to an observ
 To the best of our knowledge, this was the first time that such a change was enabled in an Epistemic Temporal Logic.
 
 For Epistemic and/or Temporal Logics, model-checking (deciding if a formula is true in a model) is an important problem, as it allows to confront a specification and the modelization of a system.
-In [?], we showed that model-checking \ctlskd\ could be reduced to the model-checking of \ctls. The model-checking of \ctls\ is itself known to be reducable to the model-checking of \ltl\ [?], another classical Temporal Logic.
+In [?], we showed that model-checking \ctlskd\ could be reduced to the model-checking of \ctls. The model-checking of \ctls\ is itself known to be reductible to the model-checking of \ltl\ [?], another classical Temporal Logic.
 We previously defined and model-checked \ctlskd\ in a multi-agent setting. However, this work will focus on the implementation of a \textbf{single-agent} \ctlskd\ model-checker. This choice was made for simplicity and the algorithm is almost identical.
 
-In this report, I present my work on implementing a model-checker of \ctlskd. To this end, we use NuSMV [?], a \ltl\ model-checker, and build a \ctls\ model-checker, then a  \ctlskd\ model-checker, using the reductions.
+In this report, I present my work on implementing a model-checker of \ctlskd. To this end, we use NuSMV [?], a SAT-based \ltl\ model-checker, and build a \ctls\ model-checker, then a  \ctlskd\ model-checker, using the reductions.
 The implementation is done in OCaml, and can be found online [?]. In a first section, we present the logics and their formalization, then the reductions. We then discuss the implementation itself. Finally, we present a way to evaluate our implementation.
 
 
@@ -126,7 +126,7 @@ $h\eqh{r}h'\quad\iff\quad \forall i< |h|, \forall o\in \mathit{O}(r,i), h(i)\eqs
 Finally, the semantics are defined as follows:
 History formulas need a history $h$ (finite sequence of previous states) and an observation record $r$ to be interpreted, to know which history might be considered possible for the agent.
 Path formulas are interpreted on a run $\pi$ (infinite sequence of states of the model), a point in time (natural number), and an observation record.
-
+\begin{table}
 \begin{tabular}{l c l}
   $M,h,r \models p $&$ \iff $&$ p\in V(\mathit{last}(h))$\\
   $M,h,r \models \neg\varphi $&$ \iff $&$ M,h,r\not\models\varphi$\\
@@ -140,9 +140,9 @@ Path formulas are interpreted on a run $\pi$ (infinite sequence of states of the
   $M,\pi,n,r\models\neg\psi $&$ \iff $&$ M,\pi,n,r\not\models\psi$\\
   $M,\pi,n,r\models \psi_1\wedge\psi_2 $&$ \iff $&$ (M,\pi,r,n\models\psi_1~\text{and}~ M,\pi,r,n\models\psi_2)$\\
   $M,\pi,n,r\models\X\psi $&$ \iff $&$  M,\pi,(n+1),r\models\psi$\\
-  $M,\pi,n,r\models \psi_1\U\psi_2 $&$ \iff $&$ \exists m\geq n$ such that $\forall k\in[n,m[, M,\pi,k,r\models\psi_1$\\
-   & & and $M,\pi,m,r\models\psi_2$
+  $M,\pi,n,r\models \psi_1\U\psi_2 $&$ \iff $&$ \exists m\geq n$ such that $\forall k\in[n,m[, M,\pi,k,r\models\psi_1$ and $M,\pi,m,r\models\psi_2$\\
 \end{tabular}
+\end{table}
 
 Finally, we say that $M=(S,I_s,o_I,T,V,\eqstate{o_1},\dots,\eqstate{o_m})$ models $\varphi$ (written $M\models\varphi$), if $\forall s\in I_s, M,s,[(o_I,0)]\models\varphi$. This definition corresponds to the model-checking problem.
 
@@ -201,10 +201,10 @@ Thus we define our states as such:
 
 When building augmented states, we make sure that the information sets have no duplicates and are ordered, which guarantees that each augmented state has a unique representation.
 
-Kripke structure are then defined. The \texttt{kripke} type represents the states and transition of a Kripke Structure: each element of the list is a state and its list of successors.
-A marking represents the valuation function. Each element of the list contains an atomic proposition and the list of states wher it holds.
+Kripke structure are then defined. The \lstinline{kripke} type represents the states and transition of a Kripke Structure: each element of the list is a state and its list of successors.
+A marking represents the valuation function. Each element of the list contains an atomic proposition and the list of states where it holds.
 Decoupling the two types allows to add new atomic propositions without changing the underlying structure easily, which will prove useful for marking algorithms.
-Observations equivalence relations are described with the \texttt{obs\_marking} type. It maps observations and states to a value. 
+Observations equivalence relations are described with the \lstinline{obs_marking} type. It maps observations and states to a value. 
 
 \begin{lstlisting}
   type kripke = (state * state list) list
@@ -219,15 +219,17 @@ Observations equivalence relations are described with the \texttt{obs\_marking} 
 
 
 We then define the 3 logics' syntaxes:
+\begin{center}
+  \begin{minipage}[t]{0.4\linewidth}
 \begin{lstlisting}
 type ltl =
   | LTL_TRUE
   | LTL_AP of atp
   | LTL_NEG of ltl
-  | LTL_OR of ltl* ltl
-  | LTL_AND of ltl* ltl
+  | LTL_OR of ltl * ltl
+  | LTL_AND of ltl * ltl
   | LTL_X of ltl
-  | LTL_U of ltl* ltl
+  | LTL_U of ltl * ltl
 
 type state_ctls =
   | ST_CTLS_TRUE
@@ -244,7 +246,10 @@ type state_ctls =
    | P_CTLS_AND of path_ctls * path_ctls
    | P_CTLS_X of path_ctls
    | P_CTLS_U of path_ctls * path_ctls
-
+ \end{lstlisting}
+\end{minipage}
+\begin{minipage}[t]{0.5\linewidth}
+\begin{lstlisting}
 type history_ctlskd =
   | H_CTLSKD_TRUE
   | H_CTLSKD_AP of atp
@@ -263,7 +268,8 @@ type history_ctlskd =
    | P_CTLSKD_X of path_ctlskd
    | P_CTLSKD_U of path_ctlskd * path_ctlskd
 \end{lstlisting}
-
+\end{minipage}
+\end{center}
 
 Given these types, we can define the signature of our 3 model-checking procedures:
 
@@ -280,7 +286,7 @@ Similarly, as only \ctlskd\ has imperfect information, its function is the only 
 \subsection{\ltl\ Model-Checking}
 As we use NuSMV, a \ltl\ model-checker, our model-checking procedure can simply call it.
 However, NuSMV only works on an input file. We then write several functions to translate a \ltl\ model-checking problem as a file following the syntax of NuSMV.
-We then call the NuSMV executable on this file. Because its output is a long string, we write a small wrapper in C to analyze it and simply return 1 or 0 depending on the result. This returned value can be obtained in Ocaml by using the \texttt{Sys.command} function.
+We then call the NuSMV executable on this file. Because its output is a long string, we write a small wrapper in C to analyze it and simply return 1 or 0 depending on the result. This returned value can be obtained in Ocaml by using the \lstinline{Sys.command} function.
 
 \subsection{\ctls\ Model-Checking}
 An algorithm to create a \ctls\ model-checker from a \ltl\ one can be seen in [?].
@@ -323,7 +329,7 @@ When dealing with an $\A\varphi$, we call the model-checker on each states to ma
 Note that, if $\varphi$ is not a linear formula, we don't replace it right away, as the \ltl\ procedure only deals with \ltl\ formulas. In that case, we first replace the inner sub-formulas.
 
 We have one such case for each possible inductive case. We don't define any for $\E\varphi$ as we replaced them earlier.
-Finally, the \texttt{marking\_update} function returns a new marking and a new specification. This formula is linear (no more $\A\varphi$), and checking it in \ltl\ with the new marking is equivalent to model-checking the original problem.
+Finally, the \lstinline{marking_update} function returns a new marking and a new specification. This formula is linear (no more $\A\varphi$), and checking it in \ltl\ with the new marking is equivalent to model-checking the original problem.
 
 \subsection{\ctlskd\ Model-Checking}
 As seen on section [?], model-checking \ctlskd\ can be done once again with a marking algorithm.
@@ -358,7 +364,7 @@ Only the model-checking procedures were implemented, meaning that there is curre
 To evaluate our implementation, we first wrote a few generic tests on small models, such that we could know the answer.
 All of these tests return the expected result.
 
-We then created parametric tests for each of our logics. These take 2 arguments (the model's size and the formula's size), build a problem and solve it. This allows to study the time comlpexity of our procedures.
+We then created parametric tests for each of our logics. These take 2 arguments (the model's size and the formula's size), build a problem and solve it. This allows to study the time complexity of our procedures.
 
 TODO
 
@@ -369,7 +375,7 @@ Our implementation seems to give correct results so far, but could be improved i
 We could allow the user to write an input file in a given syntax (maybe the same as NuSMV's).
 
 \paragraph{Multi-Agent}
-In [?], we defne \ctlskd\ for multi agent settings. Each $\K$ and $\Delta$ operators takes an additional parameter to indicate the relevant agent.
+In [?], we define \ctlskd\ for multi agent settings. Each $\K$ and $\Delta$ operators takes an additional parameter to indicate the relevant agent.
 We showed that the model-checking algorithm is almost identical, but needs to use $k$-trees instead of Information Sets (a tree that represents one agent's knowledge of the other agents' knowledge, introduced in [?]).
 This would be an easy extension to our implementation.
 
@@ -377,7 +383,7 @@ This would be an easy extension to our implementation.
 We didn't use all the polymorphic features of OCaml. A more elegant way to define models would have been to use a more abstract type for states. We kept it simple for this proof-of-concept implementation.
 
 \paragraph{Other Solvers}
-We currenlty only use NuSMV, but there are numerous other \ltl\ solvers. Another good choice would have been SPIN [?].
+We currently only use NuSMV, but there are numerous other \ltl\ solvers. Another good choice would have been SPIN [?].
 It would be interesting to compare the results in our setting.
 
 \paragraph{Binding NuSMV}
@@ -391,10 +397,23 @@ As \ctls\ and \ltl\ model-checking complexity depends on the size of the model, 
 \paragraph{Counter-Example generation}
 NuSMV finds a counter-example in false specifications. We believe that, using these counter-examples, we could build one for the \ctlskd\ model-checking problem. However, NuSMV's output when printing a counter-example isn't directly exploitable (states are renamed for instance).
 
-\section{Acknowledgements}
+\section{Acknowledgments}
+I am grateful to Bastien Maubert, Sasha Rubin and Aniello Murano for working with me on [?,?], and advising me on this project.
+In particular, they redirected me to NuSMV and SPIN, and towards the reduction from \ctls\ to \ltl\ in [?].
+
+\section{Related Works}
+Our previous work already defined \ctlskd. Our implementation is based on the model-checking procedure we wrote in [?].
+The reduction technique resembles other algorithms from model-checking.
+Marking algorithms have been used previously (in [?] for instance).
+However, all implementations in the literature seem to be written in an imperative way.
+Information Sets are a particular case of $k$-trees [?].
+
 
 \section{Conclusion}
+We implemented a \ctlskd\ model-checker in OCaml. We make use of its functional features to implement functional marking algorithms. The model-checking problem was solved in [?] by means of a reduction to \ctls\ model-checking.
 
+TODO: comment on the results.
+TODO: comment on future works.
 
 
 \end{document}
