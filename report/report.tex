@@ -66,22 +66,22 @@ Similarly, Epistemic Logics allow to describe and reason about knowledge in dist
 Combining the two kinds of logics for Epistemic Temporal Logics is a popular field with many uses, as in Artificial Intelligence or Game Theory.
 In many real-world applications, several agents are involved, each with its own view of the world, and things evolve dynamically.
 
-In an earlier work [?], we defined a new Epistemic Temporal Logic, \ctlskd.
+In an earlier work~\cite{internship}, we defined a new Epistemic Temporal Logic, \ctlskd.
 It extends the \ctlsk\ logic, a well-known epistemic extension of \ctls, a popular temporal logic.
 While \ctlsk\ added to \ctls\ the $\K$ operator to model agents knowledge, \ctlskd\ adds the operator $\Delta$, that allows agents to change their ``observational power'', or their point of view on the system.
 For instance, the formula $\D{o}\K\A\X p$ means that after changing to an observation o, the agent knows that, on the next step, the proposition p will hold, whatever path has been taken by the system.
 To the best of our knowledge, this was the first time that such a change was enabled in an Epistemic Temporal Logic.
 
 For Epistemic and/or Temporal Logics, model-checking (deciding if a formula is true in a model) is an important problem, as it allows to confront a specification and the modelization of a system.
-In [?], we showed that model-checking \ctlskd\ could be reduced to the model-checking of \ctls. The model-checking of \ctls\ is itself known to be reductible to the model-checking of \ltl\ [?], another classical Temporal Logic.
+In~\cite{internship}, we showed that model-checking \ctlskd\ could be reduced to the model-checking of \ctls. The model-checking of \ctls\ is itself known to be reductible to the model-checking of \ltl ~\cite{reduction}, another classical Temporal Logic.
 We previously defined and model-checked \ctlskd\ in a multi-agent setting. However, this work will focus on the implementation of a \textbf{single-agent} \ctlskd\ model-checker. This choice was made for simplicity and the algorithm is almost identical.
 
-In this report, I present my work on implementing a model-checker of \ctlskd. To this end, we use NuSMV [?], a SAT-based \ltl\ model-checker, and build a \ctls\ model-checker, then a  \ctlskd\ model-checker, using the reductions.
-The implementation is done in OCaml, and can be found online [?]. In a first section, we present the logics and their formalization, then the reductions. We then discuss the implementation itself. Finally, we present a way to evaluate our implementation.
+In this report, I present my work on implementing a model-checker of \ctlskd. To this end, we use NuSMV~\cite{nusmv_paper}, a SAT-based \ltl\ model-checker, and build a \ctls\ model-checker, then a  \ctlskd\ model-checker, using the reductions.
+The implementation is done in OCaml, and can be found online~\cite{ctlskd_mc}. In a first section, we present the logics and their formalization, then the reductions. We then discuss the implementation itself. Finally, we present a way to evaluate our implementation.
 
 
 \section{Formally Model-Checking \ctlskd}
-Most of this section comes from our previous work [?,?]. More details can be found there.
+Most of this section comes from our previous work~\cite{KR18,internship}. More details can be found there.
 The following sections will only focus on new work.
 
 \subsection{Single agent \ctlskd}
@@ -164,7 +164,7 @@ A few rules from this new semantics are:
   $M,\pi,I,o\models\X\psi $&$ \iff $&$ M,\pi_{1\dots},\UT(I,\pi_1,o),o\models\psi$\\
 \end{tabular}
 
-We proved in [?] the following theorem:
+We proved in~\cite{internship} the following theorem:
 $\forall \varphi,h,r,s,I,o$ such that $\FV(h,r)=(s,I,o)$, $M,h,r\models\varphi\iff M,s,I,o\models\varphi$.
 Where $\FV$ is a function that relates histories and observation records to the corresponding current state, information set and observation.
 This proves that the two semantics are equivalent, and it suffices to model-check the information set semantics.
@@ -289,14 +289,14 @@ However, NuSMV only works on an input file. We then write several functions to t
 We then call the NuSMV executable on this file. Because its output is a long string, we write a small wrapper in C to analyze it and simply return 1 or 0 depending on the result. This returned value can be obtained in Ocaml by using the \lstinline{Sys.command} function.
 
 \subsection{\ctls\ Model-Checking}
-An algorithm to create a \ctls\ model-checker from a \ltl\ one can be seen in [?].
+An algorithm to create a \ctls\ model-checker from a \ltl\ one can be seen in~\cite{reduction}.
 This is a simple marking algorithm on formulas of the form $\E\varphi$.
 
 However, in this algorithm, the authors assume that the \ltl\ model-checking procedure returns true if the formula is true in at least one path starting from the initial state (\ltl\ formulas are evaluated on paths).
 NuSMV returns true if the formula holds in all paths starting from the initial state.
 We thus adapt the algorithm to mark on all sub-formulas $\A\varphi$, and replace every $\E\varphi$ with $\neg\A\neg\varphi$.
 
-Finally, all the marking algorithms from [?] and [?] were written in an imperative way.
+Finally, all the marking algorithms from~\cite{reduction} and~\cite{internship} were written in an imperative way.
 We design a marking recursive function for functional languages.
 We use the pattern-matching feature of OCaml to match on the inductive structure of formulas to model-check.
 In practice, our function has the following signature:
@@ -341,7 +341,7 @@ We first define functions to build an augmented model (along with its valuation 
   let rec augmented_marking (m:std_marking) (states: state list): marking = ...
 \end{lstlisting}
 
-We can then define the marking algorithm in similar way than \ctls. This time, the formulas that will be replaced by fresh atomic propositions are $\K\varphi$ and $\D{o}\varphi$, where $\varphi$ is a \ctls\ formula. More details can be found in [?].
+We can then define the marking algorithm in similar way than \ctls. This time, the formulas that will be replaced by fresh atomic propositions are $\K\varphi$ and $\D{o}\varphi$, where $\varphi$ is a \ctls\ formula. More details can be found in~\cite{internship}.
 For instance, for $\D{o}\varphi$ formulas:
 \begin{lstlisting}
   | H_CTLSKD_D (o,h) ->
@@ -357,7 +357,7 @@ For instance, for $\D{o}\varphi$ formulas:
 
 
 \section{Evaluation}
-Our implementation was successfully written in Ocaml. It is available online [?], but requires a NuSMV executable (also available online for free [?]). It required over 800 lines of commented OCaml and a small NuSMV wrapper written in C.
+Our implementation was successfully written in Ocaml. It is available online~\cite{ctlskd_mc}, but requires a NuSMV executable (also available online for free~\cite{get_nusmv}). It required over 800 lines of commented OCaml and a small NuSMV wrapper written in C.
 
 Only the model-checking procedures were implemented, meaning that there is currently no parser to get a formula and a model. One has to write directly in the Ocaml syntax, which makes for unnecessary long definitions.
 
@@ -375,15 +375,15 @@ Our implementation seems to give correct results so far, but could be improved i
 We could allow the user to write an input file in a given syntax (maybe the same as NuSMV's).
 
 \paragraph{Multi-Agent}
-In [?], we define \ctlskd\ for multi agent settings. Each $\K$ and $\Delta$ operators takes an additional parameter to indicate the relevant agent.
-We showed that the model-checking algorithm is almost identical, but needs to use $k$-trees instead of Information Sets (a tree that represents one agent's knowledge of the other agents' knowledge, introduced in [?]).
+In~\cite{KR18}, we define \ctlskd\ for multi agent settings. Each $\K$ and $\Delta$ operators takes an additional parameter to indicate the relevant agent.
+We showed that the model-checking algorithm is almost identical, but needs to use $k$-trees instead of Information Sets (a tree that represents one agent's knowledge of the other agents' knowledge, introduced in~\cite{ktrees}).
 This would be an easy extension to our implementation.
 
 \paragraph{Polymorphism}
 We didn't use all the polymorphic features of OCaml. A more elegant way to define models would have been to use a more abstract type for states. We kept it simple for this proof-of-concept implementation.
 
 \paragraph{Other Solvers}
-We currently only use NuSMV, but there are numerous other \ltl\ solvers. Another good choice would have been SPIN [?].
+We currently only use NuSMV, but there are numerous other \ltl\ solvers. Another good choice would have been SPIN~\cite{spin}.
 It would be interesting to compare the results in our setting.
 
 \paragraph{Binding NuSMV}
@@ -398,22 +398,24 @@ As \ctls\ and \ltl\ model-checking complexity depends on the size of the model, 
 NuSMV finds a counter-example in false specifications. We believe that, using these counter-examples, we could build one for the \ctlskd\ model-checking problem. However, NuSMV's output when printing a counter-example isn't directly exploitable (states are renamed for instance).
 
 \section{Acknowledgments}
-I am grateful to Bastien Maubert, Sasha Rubin and Aniello Murano for working with me on [?,?], and advising me on this project.
-In particular, they redirected me to NuSMV and SPIN, and towards the reduction from \ctls\ to \ltl\ in [?].
+I am grateful to Bastien Maubert, Sasha Rubin and Aniello Murano for working with me on \cite{internship,KR18}, and advising me on this project.
+In particular, they redirected me to NuSMV and SPIN, and towards the reduction from \ctls\ to \ltl\ in~\cite{reduction}.
 
 \section{Related Works}
-Our previous work already defined \ctlskd. Our implementation is based on the model-checking procedure we wrote in [?].
+Our previous work already defined \ctlskd. Our implementation is based on the model-checking procedure we wrote in~\cite{internship}.
 The reduction technique resembles other algorithms from model-checking.
-Marking algorithms have been used previously (in [?] for instance).
+Marking algorithms have been used previously (in~\cite{reduction} for instance).
 However, all implementations in the literature seem to be written in an imperative way.
-Information Sets are a particular case of $k$-trees [?].
+Information Sets are a particular case of $k$-trees~\cite{ktrees}.
 
 
 \section{Conclusion}
-We implemented a \ctlskd\ model-checker in OCaml. We make use of its functional features to implement functional marking algorithms. The model-checking problem was solved in [?] by means of a reduction to \ctls\ model-checking.
+We implemented a \ctlskd\ model-checker in OCaml. We make use of its functional features to implement functional marking algorithms. The model-checking problem was solved in~\cite{internship} by means of a reduction to \ctls\ model-checking.
 
 TODO: comment on the results.
 TODO: comment on future works.
 
+\bibliographystyle{plain}
+\bibliography{report}
 
 \end{document}

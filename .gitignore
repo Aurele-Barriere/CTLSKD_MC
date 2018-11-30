@@ -5,6 +5,8 @@
 *.aux
 *.log
 *.pdf
+*.bbl
+*.blg
 src/NuSMV
 src/nusmv_wrapper
 src/ltl
