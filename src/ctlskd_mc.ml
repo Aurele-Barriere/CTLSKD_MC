@@ -228,12 +228,8 @@ and aug_path_marking_update (k:kripke) (m:marking) (om:obs_marking) (spec:path_c
                             
 (* CTL*KD model-Checking. Takes a model, an initial state, a marking, an initial observation and a specification *)
 let ctlskd_mc (k:std_kripke) (state_init:std_state) (m:std_marking) (obs_init:observation) (om:obs_marking) (spec:history_ctlskd): bool =
-  let _ = print_endline "original kripke" in
-  let _ = print_std_kripke k in
   let obs_list = get_obs_list obs_init spec in
   let aug_k = augmented_kripke k obs_list om in
-  let _ = print_endline "new kripke" in
-  let _ = print_kripke aug_k in
   let aug_states = get_states aug_k in
   let aug_m = augmented_marking m aug_states in
   let (newm, newspec) = aug_marking_update aug_k aug_m om spec in

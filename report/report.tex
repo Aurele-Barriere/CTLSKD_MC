@@ -7,6 +7,8 @@
 \usepackage{xcolor}
 \usepackage{pgf,tikz}
 \usepackage{multicol}
+\usepackage{pgfplots}
+\usetikzlibrary{positioning}
 
 \title{Writing a CTLSKD Model-Checker in Ocaml}
 
@@ -191,7 +193,7 @@ The definition of the Information Set semantics makes the correctness of the alg
 Our models can either be standard models, where each state can be numbered, or augmented models for the model-checking of \ctlskd.
 States of augmented models include a standard state, an information set and an observation
 
-Thus we define our states as such:
+We thus define our states as such:
 \begin{lstlisting}
   type std_state = int
   type inf_set = std_state list
@@ -341,7 +343,7 @@ We first define functions to build an augmented model (along with its valuation 
   let rec augmented_marking (m:std_marking) (states: state list): marking = ...
 \end{lstlisting}
 
-We can then define the marking algorithm in similar way than \ctls. This time, the formulas that will be replaced by fresh atomic propositions are $\K\varphi$ and $\D{o}\varphi$, where $\varphi$ is a \ctls\ formula. More details can be found in~\cite{internship}.
+We can then define the marking algorithm in a similar way as \ctls. This time, the formulas that will be replaced by fresh atomic propositions are $\K\varphi$ and $\D{o}\varphi$, where $\varphi$ is a \ctls\ formula. More details can be found in~\cite{internship}.
 For instance, for $\D{o}\varphi$ formulas:
 \begin{lstlisting}
   | H_CTLSKD_D (o,h) ->
@@ -364,9 +366,230 @@ Only the model-checking procedures were implemented, meaning that there is curre
 To evaluate our implementation, we first wrote a few generic tests on small models, such that we could know the answer.
 All of these tests return the expected result.
 
-We then created parametric tests for each of our logics. These take 2 arguments (the model's size and the formula's size), build a problem and solve it. This allows to study the time complexity of our procedures.
+We then created parametric tests for each of our logics. These take 2 arguments (the model's size and the formula's size), build a problem and solve it. This allows to study the time complexity of our procedures. We picked these models and formulas for their simplicity and our ability to predict their results (to check for any errors in the implementaton).
 
-TODO
+\subsection{Evaluation Setting}
+\paragraph{Evaluating \ltl}
+Given a size $n$, we build the model that can be seen on Figure~\ref{model_ltl}.
+Given a formula size $m$, we build the following specification:
+$\phi_0 = (true~\U~p)$,\quad $\phi_{m+1} = true~\U~\X (\phi_m)$.
+We can easily check that, for any formula size and model size, the formula holds (with initial state $s_n$).
+
+The Figure~\ref{time_ltl} gives the time it took for our solver to build the example and find that result, for different values of $m$ and $n$.
+
+\paragraph{Evaluating \ctls}
+The parametric model is given Figure~\ref{model_ctls}.
+The formulas are $\phi_0 = \E(true~\U~p)$\quad$\phi_{m+1} = \E\X\phi_m$.
+The Figure~\ref{time_ctls} gives the results.
+
+\paragraph{Evaluating \ctlskd}
+The parametric model is given Figure~\ref{model_ctlskd}.
+The formulas are $\phi_0 = \D{o_2}\K\neg p$\quad$\phi_{m+1} =\E\X\phi_m$.
+The Figure~\ref{time_ctls} gives the results.
+The initial observation was $o_1$, the blind observation where all states are indistinguishables.
+The observation $o_2$ is the perfect one, where the agent can distinguish each state.
+The initial state was $s_n$.
+
+\subsection{Result analysis}
+As we only checked our procedures on one example each, the depicted results are not enough to make general assomptions about the performance and complexity of our algorithms, but they provide a valuable insight.
+First, we know that both \ltl\ and \ctls\ model-checking problems are in PSPACE-complete~\cite{complexity}.
+
+We can see that both marking algorithm (for \ctls\ and \ctlskd) seem to behave linearly in the size of the formula.
+Indeed, in our examples, the constructors are all nested.
+Consider the formulas $\phi_0 = \E(true~\U~p)$\quad$\phi_{m+1} = \E\X\phi_m$.
+When model-checking $\phi_m$ on a model, we first model-check $\phi_0$ on each states of the augmented model, and add a new marking.
+We then model-check the formula $\E\X a$, where $a$ is a new atomic proposition (true on the states where $\phi_0$ holds).
+In general, to model-check $\phi_{m+1}$, we model-check the \ltl\ formula $\E\X q$ where q is an atomic proposition true on states where $\phi_m$ holds.
+The time to model-check this formula does not depend on $m$, as the entire formula $\phi_m$ has been reduced to a simple atomic proposition.
+This explains why our marking algorithms are linear in the size of the formulas in our examples.
+
+Finally, the number of states in the augmented model is easily computable: $|S|\times 2^{|S|-1}\times |\mathcal{O}|$ (we only build the states $(s,I,o)$ wher $s\in I$, as the others are not reachable). This explains why the time of model-checking \ctlskd\ explodes so quickly in Figure~\ref{time_ctlskd}.
+
+
+
+\begin{figure}
+  \centering
+  \begin{tikzpicture}[%
+      every node/.style={circle,minimum size=4pt,minimum height=4pt, inner sep=0pt},
+      shorten >=2pt,
+      node distance=1.3cm, >=latex
+    ]
+    \node [] (0) [circle] {$s_n$};
+    \node [] (1) [circle, right=of 0] {$s_{n-1}$};
+    \node [] (2) [circle, right=of 1] {$\dots$};
+    \node [] (3) [circle, right=of 2] {$s_1$};
+    \node [] (4) [circle, right=of 3] {$s_0$~\color{RedViolet}(p)};
+    \path [draw] (0) edge[->]  node {} (1)
+    (1) edge[->]  node {} (2)
+    (2) edge[->]  node {} (3)
+    (3) edge[->]  node {} (4)
+    (2) edge[->, bend right]  node {} (4)
+    (1) edge[->, bend right]  node {} (4)
+    (0) edge[->, bend right]  node {} (4)
+    (2) edge[->, bend left]  node {} (3)
+    (1) edge[->, bend left]  node {} (3)
+    (0) edge[->, bend left]  node {} (3)
+    (0) edge[->, bend right]  node {} (2)
+    (4) edge[->,loop above]  node {} (4);
+  \end{tikzpicture}
+  \caption{Parametric Model for \ltl}
+  \label{model_ltl}
+\end{figure}
+\begin{figure}
+  \centering
+  \begin{tikzpicture}[%
+      every node/.style={circle,minimum size=4pt,minimum height=4pt, inner sep=0pt},
+      shorten >=2pt,
+      node distance=1.3cm, >=latex
+    ]
+    \node [] (0) [circle] {$s_{2\times n}$};
+    \node [] (1) [circle, above=of 0] {$s_{2\times n-1}$};
+    \node [] (2) [circle, right=of 0] {$\dots$};
+    \node [] (3) [circle, right=of 2] {$s_2$};
+    \node [] (4) [circle, above=of 3] {$s_1$};
+    \node [] (5) [circle, right=of 3] {$s_0$~\color{RedViolet}(p)};
+    \path [draw] (0) edge[->]  node {} (1)
+    (3) edge[->]  node {} (4)
+    (3) edge[->]  node {} (5)
+    (2) edge[->]  node {} (3)
+    (0) edge[->]  node {} (2)
+    (0) edge[->, bend right]  node {} (3)
+    (0) edge[->, bend right]  node {} (5)
+    (1) edge[->, loop right]  node {} (1)
+    (4) edge[->, loop right]  node {} (4)
+    (5) edge[->, loop above]  node {} (5);
+  \end{tikzpicture}
+  \caption{Parametric Model for \ctls}
+  \label{model_ctls}
+\end{figure}
+
+\begin{figure}
+  \centering
+  \begin{tikzpicture}[%
+      every node/.style={circle,minimum size=4pt,minimum height=4pt, inner sep=0pt},
+      shorten >=2pt,
+      node distance=1.3cm, >=latex
+    ]
+    \node [] (0) [circle] {$s_0$~\color{RedViolet}(p)};
+    \node [] (1) [circle, below right=of 0] {$s_1$};
+    \node [] (2) [circle, left=of 1] {$s_2$};
+    \node [] (3) [circle, left=of 2] {$\dots$};
+    \node [] (4) [circle, left=of 3] {$s_n$};
+    \path [draw] (2) edge[->]  node {} (1)
+    (3) edge[->]  node {} (2)
+    (4) edge[->]  node {} (3)
+    (2) edge[->]  node {} (0)
+    (3) edge[->]  node {} (0)
+    (4) edge[->]  node {} (0)
+    (0) edge[->, loop above]  node {} (0)
+    (1) edge[->, loop above]  node {} (1);
+  \end{tikzpicture}
+  \caption{Parametric Model for \ctlskd}
+  \label{model_ctlskd}
+\end{figure}
+\begin{figure}
+  \begin{tikzpicture}
+    \begin{axis}[ xlabel=Model size (with formula size 10), ylabel=Time (seconds)]
+      \addplot[color=RedViolet,mark=x] coordinates {
+        (10,0.018)
+        (50,0.037)
+        (100,0.019)
+        (150,0.295)
+        (200,0.607)
+        (250,1.104)
+        (300,1.778)
+        (350,3.095)
+        (400,4.150)
+        (450,5.903)
+        (500,9.217) };
+    \end{axis}
+  \end{tikzpicture}%
+  \begin{tikzpicture}
+    \begin{axis}[ xlabel=Formula size (with model size 20), ylabel=Time (seconds)]
+      \addplot[color=RedViolet,mark=x] coordinates {
+        (10,0.019)
+        (50,0.05)
+        (100,0.150)
+        (150,0.470)
+        (200,1.046)
+        (250,1.857)
+        (300,3.628)
+        (350,5.556)
+        (400,7.942)
+        (450,12.762)
+        (500,16.9) };
+    \end{axis}
+  \end{tikzpicture}
+  \caption{LTL Time Results}
+  \label{time_ltl}
+\end{figure}
+
+\begin{figure}
+  \begin{tikzpicture}
+    \begin{axis}[ xlabel=Model size (with formula size 5), ylabel=Time (seconds)]
+      \addplot[color=RedViolet,mark=x] coordinates {
+        (1,0.206)
+        (5,0.788)
+        (10,1.685)
+        (15,2.815)
+        (20,4.370)
+        (25,6.464)
+        (30,9.09)
+        (35,12.709)
+        (40,16.969)
+        (45,22.424)
+        (50,29.349) };
+    \end{axis}
+  \end{tikzpicture}%
+  \begin{tikzpicture}
+    \begin{axis}[ xlabel=Formula size (with model size 5), ylabel=Time (seconds)]
+      \addplot[color=RedViolet,mark=x] coordinates {
+        (1,0.267)
+        (10,1.432)
+        (20,2.763)
+        (30,4.210)
+        (40,5.709)
+        (50,7.236)
+        (60,8.905)
+        (70,10.501)
+        (80,12.240)
+        (90,14.158)
+        (100,16.060) };
+    \end{axis}
+  \end{tikzpicture}
+  \caption{\ctls\ Time Results}
+  \label{time_ctls}
+\end{figure}
+
+\begin{figure}
+  \begin{tikzpicture}
+    \begin{axis}[ xlabel=Model size (with formula size 1), ylabel=Time (seconds)]
+      \addplot[color=RedViolet,mark=x] coordinates {
+        (1,0.251)
+        (2,0.844)
+        (3,3.094)
+        (4,15.867)
+        (5,116.823) };
+    \end{axis}
+  \end{tikzpicture}%
+  \begin{tikzpicture}
+    \begin{axis}[ xlabel=Formula size (with model size 2), ylabel=Time (seconds)]
+      \addplot[color=RedViolet,mark=x] coordinates {
+        (1,0.843)
+        (2,1.161)
+        (3,1.461)
+        (4,1.770)
+        (5,2.099)
+        (6,2.420)
+        (7,2.742)
+        (8,3.064)
+        (9,3.390)
+        (10,3.703) };
+    \end{axis}
+  \end{tikzpicture}
+  \caption{\ctlskd\ Time Results}
+  \label{time_ctlskd}
+\end{figure}
 
 \section{Future Works}
 Our implementation seems to give correct results so far, but could be improved in numerous ways.
