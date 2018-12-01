@@ -63,7 +63,7 @@
 
 \section{Introduction}
 
-Temporal Logics are a convenient formalism when it comes to reasoning about knowledge in dynamic systems.
+Temporal Logics are a convenient formalism when it comes to reasoning about dynamic systems.
 Similarly, Epistemic Logics allow to describe and reason about knowledge in distributed systems, or systems with imperfect information.
 Combining the two kinds of logics for Epistemic Temporal Logics is a popular field with many uses, as in Artificial Intelligence or Game Theory.
 In many real-world applications, several agents are involved, each with its own view of the world, and things evolve dynamically.
@@ -71,18 +71,19 @@ In many real-world applications, several agents are involved, each with its own 
 In an earlier work~\cite{internship}, we defined a new Epistemic Temporal Logic, \ctlskd.
 It extends the \ctlsk\ logic, a well-known epistemic extension of \ctls, a popular temporal logic.
 While \ctlsk\ added to \ctls\ the $\K$ operator to model agents knowledge, \ctlskd\ adds the operator $\Delta$, that allows agents to change their ``observational power'', or their point of view on the system.
-For instance, the formula $\D{o}\K\A\X p$ means that after changing to an observation o, the agent knows that, on the next step, the proposition p will hold, whatever path has been taken by the system.
+For instance, the formula $\D{o}\K\A\X p$ means that after changing to an observation $o$, the agent knows that, on the next step, the proposition $p$ will hold, whatever path has been taken by the system.
 To the best of our knowledge, this was the first time that such a change was enabled in an Epistemic Temporal Logic.
 
 For Epistemic and/or Temporal Logics, model-checking (deciding if a formula is true in a model) is an important problem, as it allows to confront a specification and the modelization of a system.
-In~\cite{internship}, we showed that model-checking \ctlskd\ could be reduced to the model-checking of \ctls. The model-checking of \ctls\ is itself known to be reductible to the model-checking of \ltl ~\cite{reduction}, another classical Temporal Logic.
-We previously defined and model-checked \ctlskd\ in a multi-agent setting. However, this work will focus on the implementation of a \textbf{single-agent} \ctlskd\ model-checker. This choice was made for simplicity and the algorithm is almost identical.
+In~\cite{internship}, we showed that model-checking \ctlskd\ could be reduced to the model-checking of \ctls. The model-checking of \ctls\ is itself known to be reducible to the model-checking of \ltl ~\cite{reduction}, another classical Temporal Logic.
+We previously defined and model-checked \ctlskd\ in a multi-agent setting. However, this work will focus on the implementation of a single-agent \ctlskd\ model-checker. This choice was made for simplicity and the algorithm is almost identical.
 
 In this report, I present my work on implementing a model-checker of \ctlskd. To this end, we use NuSMV~\cite{nusmv_paper}, a SAT-based \ltl\ model-checker, and build a \ctls\ model-checker, then a  \ctlskd\ model-checker, using the reductions.
 The implementation is done in OCaml, and can be found online~\cite{ctlskd_mc}. In a first section, we present the logics and their formalization, then the reductions. We then discuss the implementation itself. Finally, we present a way to evaluate our implementation.
 
 
 \section{Formally Model-Checking \ctlskd}
+\label{formal}
 Most of this section comes from our previous work~\cite{KR18,internship}. More details can be found there.
 The following sections will only focus on new work.
 
@@ -178,7 +179,7 @@ To this end, from $M=(S,I,o_I,T,V,\eqstate{o_1},\dots,\eqstate{o_m})$ we define 
 \item $V'(s,I,o)=V(s)$. As the algorithm is executed, new atomic propositions will appear.
 \end{itemize}
 
-Finally, any formula of \ctlskd can be model-checked with a marking algorithm on the (finite) augmented model.
+Finally, any formula of \ctlskd\ can be model-checked with a marking algorithm on the (finite) augmented model.
 Intuitively, for each $\D{o}\varphi$ where $\varphi$ is a \ctls\ formula, we model-check $\varphi$ on each state of $\hat{M}$.
 Then, we mark each state $(s,I,o')$ of $\hat{M}$ with a new atomic proposition if $\varphi$ holds on $(s,\UD(I,s,o),o)$.
 Similarly for formulas $\K\varphi$ where $\varphi$ is a \ctls\ formula, a state $(s,I,o)$ is marked with a new atomic proposition if $\varphi$ holds in each $(s',I,o)$ where $s'\in I$.
@@ -203,9 +204,9 @@ We thus define our states as such:
 
 When building augmented states, we make sure that the information sets have no duplicates and are ordered, which guarantees that each augmented state has a unique representation.
 
-Kripke structure are then defined. The \lstinline{kripke} type represents the states and transition of a Kripke Structure: each element of the list is a state and its list of successors.
+Kripke structures are then defined. The \lstinline{kripke} type represents the states and transition of a Kripke Structure: each element of the list is a state and its list of successors.
 A marking represents the valuation function. Each element of the list contains an atomic proposition and the list of states where it holds.
-Decoupling the two types allows to add new atomic propositions without changing the underlying structure easily, which will prove useful for marking algorithms.
+Decoupling the two types allows to add new atomic propositions without changing the underlying structure, which will prove useful for marking algorithms.
 Observations equivalence relations are described with the \lstinline{obs_marking} type. It maps observations and states to a value. 
 
 \begin{lstlisting}
@@ -286,7 +287,7 @@ Notice how \ltl\ and \ctls\ model-checkers take as input generic kripke structur
 Similarly, as only \ctlskd\ has imperfect information, its function is the only one requiring an observation marking and an initial observation.
 
 \subsection{\ltl\ Model-Checking}
-As we use NuSMV, a \ltl\ model-checker, our model-checking procedure can simply call it.
+As we use NuSMV, a \ltl\ and CTL model-checker, our model-checking procedure can simply call it.
 However, NuSMV only works on an input file. We then write several functions to translate a \ltl\ model-checking problem as a file following the syntax of NuSMV.
 We then call the NuSMV executable on this file. Because its output is a long string, we write a small wrapper in C to analyze it and simply return 1 or 0 depending on the result. This returned value can be obtained in Ocaml by using the \lstinline{Sys.command} function.
 
@@ -296,7 +297,7 @@ This is a simple marking algorithm on formulas of the form $\E\varphi$.
 
 However, in this algorithm, the authors assume that the \ltl\ model-checking procedure returns true if the formula is true in at least one path starting from the initial state (\ltl\ formulas are evaluated on paths).
 NuSMV returns true if the formula holds in all paths starting from the initial state.
-We thus adapt the algorithm to mark on all sub-formulas $\A\varphi$, and replace every $\E\varphi$ with $\neg\A\neg\varphi$.
+We thus adapt the algorithm to mark on all sub-formulas $\A\varphi$, and replace each $\E\varphi$ with $\neg\A\neg\varphi$.
 
 Finally, all the marking algorithms from~\cite{reduction} and~\cite{internship} were written in an imperative way.
 We design a marking recursive function for functional languages.
@@ -308,7 +309,7 @@ In practice, our function has the following signature:
   and path_marking_update (k:kripke) (m:marking) (spec:path_ctls): (marking * path_ctls) = ...
 \end{lstlisting}
 
-This function takes a structure, with its marking and a specification. It returns a new marking and a new specification, where in the new formula, each sub-formula $\A\varphi$ has been replaced with a fresh atomic proposition, and the new marking contains the truth assignment for each of these new propositions.
+This function takes a structure (with its marking of atomic propositions) and a specification. It returns a new marking and a new specification, where in the new formula, each sub-formula $\A\varphi$ has been replaced with a fresh atomic proposition, and the new marking contains the truth assignment for each of these new propositions.
 
 Most cases simply call the function recursively on subformulas:
 \begin{lstlisting}
@@ -317,7 +318,7 @@ Most cases simply call the function recursively on subformulas:
                           (newm2, ST_CTLS_OR (newspec1, newspec2))
 \end{lstlisting}
 
-When dealing with an $\A\varphi$, we call the model-checker on each states to mark the correct states:
+When dealing with an $\A\varphi$, we call the model-checker on each states to mark the correct states (function \lstinline{check_ltl} calls \lstinline{ltl_mc} on all states), and replace $\A\varphi$ with the proposition \lstinline{fresh}:
 \begin{lstlisting}
   | ST_CTLS_A p ->
      begin match is_linear_ctls p with
@@ -334,7 +335,7 @@ We have one such case for each possible inductive case. We don't define any for 
 Finally, the \lstinline{marking_update} function returns a new marking and a new specification. This formula is linear (no more $\A\varphi$), and checking it in \ltl\ with the new marking is equivalent to model-checking the original problem.
 
 \subsection{\ctlskd\ Model-Checking}
-As seen on section [?], model-checking \ctlskd\ can be done once again with a marking algorithm.
+As seen on section~\ref{formal}, model-checking \ctlskd\ can be done once again with a marking algorithm.
 However, this marking operates on the augmented model.
 We first define functions to build an augmented model (along with its valuation of atomic propositions) from a standard kripke structure.
 
@@ -366,104 +367,67 @@ Only the model-checking procedures were implemented, meaning that there is curre
 To evaluate our implementation, we first wrote a few generic tests on small models, such that we could know the answer.
 All of these tests return the expected result.
 
-We then created parametric tests for each of our logics. These take 2 arguments (the model's size and the formula's size), build a problem and solve it. This allows to study the time complexity of our procedures. We picked these models and formulas for their simplicity and our ability to predict their results (to check for any errors in the implementaton).
+We then created parametric tests for each of our logics. These take 2 arguments (the model's size and the formula's size), build a problem and solve it. This allows to study the time complexity of our procedures. We picked these models and formulas for their simplicity and our ability to predict their results (to check for any errors in the implementation).
 
-\subsection{Evaluation Setting}
-\paragraph{Evaluating \ltl}
-Given a size $n$, we build the model that can be seen on Figure~\ref{model_ltl}.
-Given a formula size $m$, we build the following specification:
-$\phi_0 = (true~\U~p)$,\quad $\phi_{m+1} = true~\U~\X (\phi_m)$.
-We can easily check that, for any formula size and model size, the formula holds (with initial state $s_n$).
-
-The Figure~\ref{time_ltl} gives the time it took for our solver to build the example and find that result, for different values of $m$ and $n$.
-
-\paragraph{Evaluating \ctls}
-The parametric model is given Figure~\ref{model_ctls}.
-The formulas are $\phi_0 = \E(true~\U~p)$\quad$\phi_{m+1} = \E\X\phi_m$.
-The Figure~\ref{time_ctls} gives the results.
-
-\paragraph{Evaluating \ctlskd}
-The parametric model is given Figure~\ref{model_ctlskd}.
-The formulas are $\phi_0 = \D{o_2}\K\neg p$\quad$\phi_{m+1} =\E\X\phi_m$.
-The Figure~\ref{time_ctls} gives the results.
-The initial observation was $o_1$, the blind observation where all states are indistinguishables.
-The observation $o_2$ is the perfect one, where the agent can distinguish each state.
-The initial state was $s_n$.
-
-\subsection{Result analysis}
-As we only checked our procedures on one example each, the depicted results are not enough to make general assomptions about the performance and complexity of our algorithms, but they provide a valuable insight.
-First, we know that both \ltl\ and \ctls\ model-checking problems are in PSPACE-complete~\cite{complexity}.
-
-We can see that both marking algorithm (for \ctls\ and \ctlskd) seem to behave linearly in the size of the formula.
-Indeed, in our examples, the constructors are all nested.
-Consider the formulas $\phi_0 = \E(true~\U~p)$\quad$\phi_{m+1} = \E\X\phi_m$.
-When model-checking $\phi_m$ on a model, we first model-check $\phi_0$ on each states of the augmented model, and add a new marking.
-We then model-check the formula $\E\X a$, where $a$ is a new atomic proposition (true on the states where $\phi_0$ holds).
-In general, to model-check $\phi_{m+1}$, we model-check the \ltl\ formula $\E\X q$ where q is an atomic proposition true on states where $\phi_m$ holds.
-The time to model-check this formula does not depend on $m$, as the entire formula $\phi_m$ has been reduced to a simple atomic proposition.
-This explains why our marking algorithms are linear in the size of the formulas in our examples.
-
-Finally, the number of states in the augmented model is easily computable: $|S|\times 2^{|S|-1}\times |\mathcal{O}|$ (we only build the states $(s,I,o)$ wher $s\in I$, as the others are not reachable). This explains why the time of model-checking \ctlskd\ explodes so quickly in Figure~\ref{time_ctlskd}.
-
-
-
-\begin{figure}
+\begin{figure}[!tbp!h]
   \centering
-  \begin{tikzpicture}[%
-      every node/.style={circle,minimum size=4pt,minimum height=4pt, inner sep=0pt},
-      shorten >=2pt,
-      node distance=1.3cm, >=latex
-    ]
-    \node [] (0) [circle] {$s_n$};
-    \node [] (1) [circle, right=of 0] {$s_{n-1}$};
-    \node [] (2) [circle, right=of 1] {$\dots$};
-    \node [] (3) [circle, right=of 2] {$s_1$};
-    \node [] (4) [circle, right=of 3] {$s_0$~\color{RedViolet}(p)};
-    \path [draw] (0) edge[->]  node {} (1)
-    (1) edge[->]  node {} (2)
-    (2) edge[->]  node {} (3)
-    (3) edge[->]  node {} (4)
-    (2) edge[->, bend right]  node {} (4)
-    (1) edge[->, bend right]  node {} (4)
-    (0) edge[->, bend right]  node {} (4)
-    (2) edge[->, bend left]  node {} (3)
-    (1) edge[->, bend left]  node {} (3)
-    (0) edge[->, bend left]  node {} (3)
-    (0) edge[->, bend right]  node {} (2)
-    (4) edge[->,loop above]  node {} (4);
-  \end{tikzpicture}
-  \caption{Parametric Model for \ltl}
-  \label{model_ltl}
-\end{figure}
-\begin{figure}
-  \centering
-  \begin{tikzpicture}[%
-      every node/.style={circle,minimum size=4pt,minimum height=4pt, inner sep=0pt},
-      shorten >=2pt,
-      node distance=1.3cm, >=latex
-    ]
-    \node [] (0) [circle] {$s_{2\times n}$};
-    \node [] (1) [circle, above=of 0] {$s_{2\times n-1}$};
-    \node [] (2) [circle, right=of 0] {$\dots$};
-    \node [] (3) [circle, right=of 2] {$s_2$};
-    \node [] (4) [circle, above=of 3] {$s_1$};
-    \node [] (5) [circle, right=of 3] {$s_0$~\color{RedViolet}(p)};
-    \path [draw] (0) edge[->]  node {} (1)
-    (3) edge[->]  node {} (4)
-    (3) edge[->]  node {} (5)
-    (2) edge[->]  node {} (3)
-    (0) edge[->]  node {} (2)
-    (0) edge[->, bend right]  node {} (3)
-    (0) edge[->, bend right]  node {} (5)
-    (1) edge[->, loop right]  node {} (1)
-    (4) edge[->, loop right]  node {} (4)
-    (5) edge[->, loop above]  node {} (5);
-  \end{tikzpicture}
-  \caption{Parametric Model for \ctls}
+  \begin{minipage}[b]{0.4\textwidth}
+    \begin{tikzpicture}[%
+        every node/.style={circle,minimum size=4pt,minimum height=4pt, inner sep=0pt},
+        shorten >=2pt,
+        node distance=1.3cm, >=latex
+      ]
+      \node [] (0) [circle] {$s_n$};
+      \node [] (1) [circle, right=of 0] {$s_{n-1}$};
+      \node [] (2) [circle, right=of 1] {$\dots$};
+      \node [] (3) [circle, right=of 2] {$s_1$};
+      \node [] (4) [circle, right=of 3] {$s_0$~\color{RedViolet}(p)};
+      \path [draw] (0) edge[->]  node {} (1)
+      (1) edge[->]  node {} (2)
+      (2) edge[->]  node {} (3)
+      (3) edge[->]  node {} (4)
+      (2) edge[->, bend right]  node {} (4)
+      (1) edge[->, bend right]  node {} (4)
+      (0) edge[->, bend right]  node {} (4)
+      (2) edge[->, bend left]  node {} (3)
+      (1) edge[->, bend left]  node {} (3)
+      (0) edge[->, bend left]  node {} (3)
+      (0) edge[->, bend right]  node {} (2)
+      (4) edge[->,loop above]  node {} (4);
+    \end{tikzpicture}
+    \caption{Parametric Model for \ltl}
+    \label{model_ltl}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.4\textwidth}
+    \begin{tikzpicture}[%
+        every node/.style={circle,minimum size=4pt,minimum height=4pt, inner sep=0pt},
+        shorten >=2pt,
+        node distance=1.3cm, >=latex
+      ]
+      \node [] (0) [circle] {$s_{2\times n}$};
+      \node [] (1) [circle, above=of 0] {$s_{2\times n-1}$};
+      \node [] (2) [circle, right=of 0] {$\dots$};
+      \node [] (3) [circle, right=of 2] {$s_2$};
+      \node [] (4) [circle, above=of 3] {$s_1$};
+      \node [] (5) [circle, right=of 3] {$s_0$~\color{RedViolet}(p)};
+      \path [draw] (0) edge[->]  node {} (1)
+      (3) edge[->]  node {} (4)
+      (3) edge[->]  node {} (5)
+      (2) edge[->]  node {} (3)
+      (0) edge[->]  node {} (2)
+      (0) edge[->, bend right]  node {} (3)
+      (0) edge[->, bend right]  node {} (5)
+      (1) edge[->, loop right]  node {} (1)
+      (4) edge[->, loop right]  node {} (4)
+      (5) edge[->, loop above]  node {} (5);
+    \end{tikzpicture}
+    \caption{Parametric Model for \ctls}
   \label{model_ctls}
+  \end{minipage}
 \end{figure}
 
-\begin{figure}
+\begin{figure}[!h]
   \centering
   \begin{tikzpicture}[%
       every node/.style={circle,minimum size=4pt,minimum height=4pt, inner sep=0pt},
@@ -487,8 +451,48 @@ Finally, the number of states in the augmented model is easily computable: $|S|\
   \caption{Parametric Model for \ctlskd}
   \label{model_ctlskd}
 \end{figure}
+
+\subsection{Evaluation Setting}
+\paragraph{Evaluating \ltl}
+Given a size $n$, we build the model that can be seen on Figure~\ref{model_ltl}.
+Given a formula size $m$, we build the following specification:
+$\phi_0 = (true~\U~p)$,\quad $\phi_{m+1} = true~\U~\X (\phi_m)$.
+We can easily check that, for any formula size and model size, the formula holds (with initial state $s_n$).
+
+The Figure~\ref{time_ltl} gives the time it took for our solver to build the example and find that result, for different values of $m$ and $n$.
+
+\paragraph{Evaluating \ctls}
+The parametric model is given Figure~\ref{model_ctls}.
+The formulas are $\phi_0 = \E(true~\U~p)$\quad$\phi_{m+1} = \E\X\phi_m$.
+The Figure~\ref{time_ctls} gives the results.
+
+\paragraph{Evaluating \ctlskd}
+The parametric model is given Figure~\ref{model_ctlskd}.
+The formulas are $\phi_0 = \D{o_2}\K\neg p$\quad$\phi_{m+1} =\E\X\phi_m$.
+The Figure~\ref{time_ctls} gives the results.
+The initial observation is $o_1$, the blind observation where all states are indistinguishables.
+The observation $o_2$ is the perfect one, where the agent can distinguish each state.
+The initial state is $s_n$.
+
+\subsection{Result analysis}
+As we only checked our procedures on one example each, the depicted results are not enough to make general assumptions about the performance and complexity of our algorithms, but they provide a valuable insight.
+First, we know that both \ltl\ and \ctls\ model-checking problems are in PSPACE-complete~\cite{complexity}. We showed in~\cite{KR18} that the single-agent \ctlskd\ model-checking problem is in EXPTIME. However, no lower-bounds have been established yet.
+
+We can see that both marking algorithm (for \ctls\ and \ctlskd) seem to behave linearly in the size of the formula.
+Indeed, in our examples, the constructors are all nested.
+Consider the formulas $\phi_0 = \E(true~\U~p)$\quad$\phi_{m+1} = \E\X\phi_m$.
+When model-checking $\phi_m$ on a model, we first model-check $\phi_0$ on each states of the augmented model, and add a new marking.
+We then model-check the formula $\E\X a$, where $a$ is a new atomic proposition (true on the states where $\phi_0$ holds).
+In general, to model-check $\phi_{m+1}$, we model-check the formula $\E\X q$ where q is an atomic proposition true on states where $\phi_m$ holds.
+This amounts to using NuSMV on the \ltl\ formula $\neg\X q$.
+The time to model-check this formula does not depend on $m$, as the entire formula $\phi_m$ has been reduced to a simple atomic proposition.
+This explains why our marking algorithms are linear in the size of the formulas in our examples.
+
+Finally, the number of states in the augmented model is easily computable: $|S|\times 2^{|S|-1}\times |\mathcal{O}|$ (we only build the states $(s,I,o)$ where $s\in I$, as the others are not reachable). This explains why the time of model-checking \ctlskd\ explodes so quickly in Figure~\ref{time_ctlskd}.
+
+\newcommand\plotscale{0.8}
 \begin{figure}
-  \begin{tikzpicture}
+  \begin{tikzpicture}[scale=\plotscale]
     \begin{axis}[ xlabel=Model size (with formula size 10), ylabel=Time (seconds)]
       \addplot[color=RedViolet,mark=x] coordinates {
         (10,0.018)
@@ -504,7 +508,7 @@ Finally, the number of states in the augmented model is easily computable: $|S|\
         (500,9.217) };
     \end{axis}
   \end{tikzpicture}%
-  \begin{tikzpicture}
+  \begin{tikzpicture}[scale=\plotscale]
     \begin{axis}[ xlabel=Formula size (with model size 20), ylabel=Time (seconds)]
       \addplot[color=RedViolet,mark=x] coordinates {
         (10,0.019)
@@ -525,7 +529,7 @@ Finally, the number of states in the augmented model is easily computable: $|S|\
 \end{figure}
 
 \begin{figure}
-  \begin{tikzpicture}
+  \begin{tikzpicture}[scale=\plotscale]
     \begin{axis}[ xlabel=Model size (with formula size 5), ylabel=Time (seconds)]
       \addplot[color=RedViolet,mark=x] coordinates {
         (1,0.206)
@@ -541,7 +545,7 @@ Finally, the number of states in the augmented model is easily computable: $|S|\
         (50,29.349) };
     \end{axis}
   \end{tikzpicture}%
-  \begin{tikzpicture}
+  \begin{tikzpicture}[scale=\plotscale]
     \begin{axis}[ xlabel=Formula size (with model size 5), ylabel=Time (seconds)]
       \addplot[color=RedViolet,mark=x] coordinates {
         (1,0.267)
@@ -562,7 +566,7 @@ Finally, the number of states in the augmented model is easily computable: $|S|\
 \end{figure}
 
 \begin{figure}
-  \begin{tikzpicture}
+  \begin{tikzpicture}[scale=\plotscale]
     \begin{axis}[ xlabel=Model size (with formula size 1), ylabel=Time (seconds)]
       \addplot[color=RedViolet,mark=x] coordinates {
         (1,0.251)
@@ -572,7 +576,7 @@ Finally, the number of states in the augmented model is easily computable: $|S|\
         (5,116.823) };
     \end{axis}
   \end{tikzpicture}%
-  \begin{tikzpicture}
+  \begin{tikzpicture}[scale=\plotscale]
     \begin{axis}[ xlabel=Formula size (with model size 2), ylabel=Time (seconds)]
       \addplot[color=RedViolet,mark=x] coordinates {
         (1,0.843)
@@ -612,32 +616,34 @@ It would be interesting to compare the results in our setting.
 \paragraph{Binding NuSMV}
 In this version, we write to a file each \ltl\ problem for NuSMV to parse and solve. We might be losing a lot of time doing useless writing and parsing (our representation is already parsed). A good solution would be to bind our representation to NuSMV's, and call their own functions directly. Such C-OCaml interfacing can be done, but would require some time to understand NuSMV's code.
 
+\paragraph{Data structures}
+As the augmented model grows exponentially in the size of the original model, keeping a list of states and transitions might not be the most optimal choice.
+
 \paragraph{Splitting the augmented model}
 In our \ctlskd\ model-checking procedure, we give the entire augmented model to the \ctls\ model-checker.
 However, the augmented model is actually composed of $o$ disjoint components, where $o$ is the number of observations.
 As \ctls\ and \ltl\ model-checking complexity depends on the size of the model, we could probably save some time by giving them the appropriate component of the augmented model. If NuSMV performs reachable state analysis, this would only save the time of writing and parsing too many states and transitions.
 
 \paragraph{Counter-Example generation}
-NuSMV finds a counter-example in false specifications. We believe that, using these counter-examples, we could build one for the \ctlskd\ model-checking problem. However, NuSMV's output when printing a counter-example isn't directly exploitable (states are renamed for instance).
+NuSMV finds a counter-example in false specifications. We believe that, using these counter-examples, we could build one for the \ctlskd\ model-checking problem. However, NuSMV's output when printing a counter-example isn't directly exploitable (states are renamed for instance). 
 
 \section{Acknowledgments}
 I am grateful to Bastien Maubert, Sasha Rubin and Aniello Murano for working with me on \cite{internship,KR18}, and advising me on this project.
 In particular, they redirected me to NuSMV and SPIN, and towards the reduction from \ctls\ to \ltl\ in~\cite{reduction}.
 
-\section{Related Works}
+\section{Related Works and Conclusion}
 Our previous work already defined \ctlskd. Our implementation is based on the model-checking procedure we wrote in~\cite{internship}.
 The reduction technique resembles other algorithms from model-checking.
 Marking algorithms have been used previously (in~\cite{reduction} for instance).
 However, all implementations in the literature seem to be written in an imperative way.
 Information Sets are a particular case of $k$-trees~\cite{ktrees}.
 
+We implemented a \ctlskd\ model-checker in OCaml. We make use of its functional features to implement functional marking algorithms. The model-checking problem was solved in~\cite{internship} by means of a reduction to \ctls\ model-checking. 
 
-\section{Conclusion}
-We implemented a \ctlskd\ model-checker in OCaml. We make use of its functional features to implement functional marking algorithms. The model-checking problem was solved in~\cite{internship} by means of a reduction to \ctls\ model-checking.
+The functional style of OCaml makes for elegant definitions of logics and marking algorithms. However, we still have a long way to go before this can check large models in a reasonable time. Part of it comes from the complexity of \ctlskd\ model-checking in itself, but we could also optimize our implementation.
+Nevertheless, our implementation has given a correct results on all of our tests.
 
-TODO: comment on the results.
-TODO: comment on future works.
-
+\newpage
 \bibliographystyle{plain}
 \bibliography{report}
 
